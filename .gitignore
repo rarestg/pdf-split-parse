@@ -1,0 +1,25 @@
+# Dependencies / build output
+node_modules/
+dist/
+dist-ssr/
+
+# Local-only data and secrets (never commit)
+_local/
+.env
+.env.local
+.env.*.local
+*.local
+
+# Python reference
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Editor / OS / local tooling
+.claude/settings.local.json
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/

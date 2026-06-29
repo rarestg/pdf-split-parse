@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Egress lock that travels with the HTML on ANY host (not just Cloudflare):
+      the page can only fetch from itself and Google's Gemini endpoint, so a BYO
+      key cannot be sent anywhere else. frame-ancestors can't be set via <meta>,
+      so it lives in public/_headers (applied by Cloudflare Pages).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <title>PDF → Markdown · client-side Gemini OCR</title>
+    <meta
+      name="description"
+      content="Convert PDFs to Markdown in your browser with your own Google Gemini API key. No backend; nothing is uploaded to any server but Google's."
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
