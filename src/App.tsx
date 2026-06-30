@@ -230,20 +230,16 @@ export function App() {
           }
         />
       )}
+      <ThemeToggle theme={theme} onTheme={setTheme} />
       <header className="app-header">
-        <div className="header-row">
-          <div className="header-text">
-            <h1>
-              PDF <span className="arrow">→</span> Markdown
-            </h1>
-            <p className="tagline">
-              Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser
-              to Gemini. A whole book can finish in under a minute, and your key and documents only ever
-              go to Gemini&rsquo;s GPUs, never to us.
-            </p>
-          </div>
-          <ThemeToggle theme={theme} onTheme={setTheme} />
-        </div>
+        <h1>
+          PDF <span className="arrow">→</span> Markdown
+        </h1>
+        <p className="tagline">
+          Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser to
+          Gemini. A whole book can finish in under a minute, and your key and documents only ever go to
+          Gemini&rsquo;s GPUs, never to us.
+        </p>
       </header>
 
       <ApiKeyInput

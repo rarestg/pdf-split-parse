@@ -19,7 +19,7 @@ interface Props {
 // glyph knocked out in the panel color (.glyph, styled in CSS).
 function CircleCheckSolid() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="currentColor" />
       <path
         className="glyph"
@@ -35,7 +35,7 @@ function CircleCheckSolid() {
 
 function CircleXSolid() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="currentColor" />
       <path className="glyph" d="M14.8 9.2l-5.6 5.6M9.2 9.2l5.6 5.6" fill="none" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
@@ -45,8 +45,8 @@ function CircleXSolid() {
 // Small line-leading marks for the key notes (decorative, so aria-hidden).
 const noteIconProps = {
   className: 'note-icon',
-  width: 14,
-  height: 14,
+  width: 17,
+  height: 17,
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
@@ -151,8 +151,8 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
         <li>
           <KeyIcon />
           <span>
-            I recommend a paid key: free-tier keys are rate-limited (so much for going parallel) and their
-            content may be human-reviewed.
+            I recommend a paid key: free-tier keys are rate-limited, and their content may be
+            human-reviewed.
           </span>
         </li>
         <li>

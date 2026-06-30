@@ -42,11 +42,12 @@ export function ThemeToggle({ theme, onTheme }: { theme: Theme; onTheme: (theme:
           key={value}
           type="button"
           className={`theme-opt${theme === value ? ' active' : ''}`}
+          aria-label={label}
           aria-pressed={theme === value}
+          title={label}
           onClick={() => onTheme(value)}
         >
           <Icon />
-          <span>{label}</span>
         </button>
       ))}
     </div>
