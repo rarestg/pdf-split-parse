@@ -82,10 +82,10 @@ The parsed `PDFDocument` is reused across the initial run and manual retries. Ex
 - `src/hooks/useOcrJob.ts` - job state machine, parsed-PDF reuse, cost ledger, merge logic.
 - `src/hooks/useLifetimeStats.ts` - localStorage aggregate spend/page/PDF tally.
 - `index.html` - CSP `<meta>` egress lock to self + Google's endpoint.
-- `public/_headers` - Cloudflare headers, including `frame-ancestors`.
+- `public/_headers` - Cloudflare static-asset headers: CSP egress lock (incl. `frame-ancestors`) and immutable caching for hashed `/assets/*`.
 - `vite.config.ts` - Vite config with `base: './'`.
 - `.nvmrc` - Node 22 for local and CI builds.
-- `wrangler.jsonc` - Cloudflare Workers Static Assets config; binds the apex custom domain.
+- `wrangler.jsonc` - Cloudflare Workers Static Assets config; binds the apex + `www` custom domains, deployed via Workers Builds.
 - `scripts/smoke.ts` - Node smoke test for the core.
 - `reference/` - original Python CLI porting reference.
 - `_local/` - gitignored scratch for PDFs, keys, and `.env`.
@@ -119,13 +119,24 @@ Persisted data is limited to optional tab-scoped key storage in `sessionStorage`
 
 ## Deploy
 
-Hosted on Cloudflare Workers Static Assets at <https://pdfsplitparse.com> (config in `wrangler.jsonc`). The Vite build is uploaded as static assets; there is no backend worker.
+Hosted on **Cloudflare Workers Static Assets** at <https://pdfsplitparse.com> (and `www`). It is pure static: the Vite build is served from Cloudflare's edge with no backend worker. All deploy config lives in `wrangler.jsonc` — the `dist/` assets, the apex + `www` `custom_domain` routes, `workers_dev: false`, and `preview_urls: true`.
+
+**Continuous deploys (Workers Builds).** The repo is Git-connected to Cloudflare, so builds and deploys run in Cloudflare's environment — no CI tokens or secrets:
+
+- Push to `main` → Cloudflare runs `npm run build`, then `npx wrangler deploy` to production (which also applies the `custom_domain` routes).
+- Pull requests get their own preview URLs.
+
+One-time setup: Cloudflare dashboard → _Workers & Pages → Import a repository_ → build command `npm run build`, deploy command `npx wrangler deploy`, production branch `main`.
+
+**Manual one-off deploy** from a machine with an authenticated wrangler (`wrangler login`, or a `CLOUDFLARE_API_TOKEN` scoped to Workers Scripts + Workers Routes + DNS edit):
 
 ```bash
 npm run deploy   # npm run build && wrangler deploy
 ```
 
-`public/_headers` (the CSP egress lock, including `frame-ancestors`) is honored by Workers Static Assets and applied to the static responses; `base: './'` keeps the build origin-agnostic.
+`public/_headers` (the CSP egress lock, including `frame-ancestors 'none'`) is honored by Workers Static Assets and applied to every static response; hashed `/assets/*` are cached immutably while `index.html` revalidates so deploys take effect at once. `base: './'` keeps the build origin-agnostic.
+
+**Zone settings** (Cloudflare dashboard, not in this repo): _Always Use HTTPS_ (http→https 301) and _HSTS_ are enabled for the zone; encryption mode is moot since there is no origin server.
 
 ## Develop And Verify
 
