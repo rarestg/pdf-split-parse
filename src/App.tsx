@@ -1,40 +1,54 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiKeyInput } from './components/ApiKeyInput';
+import { ApiKeyInput, type TestState } from './components/ApiKeyInput';
 import { Controls, type Settings } from './components/Controls';
+import { CostSummary } from './components/CostSummary';
 import { FileDrop, type LoadedPdf } from './components/FileDrop';
 import { Progress } from './components/Progress';
 import { ResultView } from './components/ResultView';
+import { RetryPanel } from './components/RetryPanel';
+import { SwapLabel } from './components/SwapLabel';
+import { useLifetimeStats } from './hooks/useLifetimeStats';
 import { useOcrJob } from './hooks/useOcrJob';
 import {
+  checkApiKey,
   DEFAULT_CONCURRENCY,
   DEFAULT_MEDIA_RESOLUTION,
-  DEFAULT_MODEL,
-  listModels,
+  DEFAULT_PROMPT,
+  DEFAULT_TIMEOUT_MS,
+  formatCost,
+  pickCheapestModel,
   type GeminiModel,
 } from './core';
 
 const SESSION_KEY = 'pdf-split-parse:gemini-key';
+
+// Shown (behind the lock) before a key is tested; replaced by the key's real
+// models after "Test". Role tags are derived from the id in Controls.
+const FALLBACK_MODELS: GeminiModel[] = [
+  { name: 'gemini-2.5-flash-lite' },
+  { name: 'gemini-2.5-flash' },
+  { name: 'gemini-2.5-pro' },
+];
 
 export function App() {
   const [apiKey, setApiKey] = useState('');
   const [rememberKey, setRememberKey] = useState(false);
   const [pdf, setPdf] = useState<LoadedPdf | null>(null);
   const [settings, setSettings] = useState<Settings>({
-    model: DEFAULT_MODEL,
+    model: FALLBACK_MODELS[0].name,
     concurrency: DEFAULT_CONCURRENCY,
+    timeoutSec: DEFAULT_TIMEOUT_MS / 1000,
     mediaResolution: DEFAULT_MEDIA_RESOLUTION,
     startPage: 1,
     endPage: 1,
-    prompt: '',
+    prompt: DEFAULT_PROMPT,
   });
-  const [models, setModels] = useState<GeminiModel[]>([]);
-  const [modelsState, setModelsState] = useState<{ loading: boolean; error: string | null }>({
-    loading: false,
-    error: null,
-  });
+  const [models, setModels] = useState<GeminiModel[]>(FALLBACK_MODELS);
+  const [testState, setTestState] = useState<TestState>({ status: 'idle' });
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { state: job, run, cancel, reset } = useOcrJob();
+  const lifetime = useLifetimeStats();
+  const { state: job, run, retry, cancel, reset } = useOcrJob(lifetime.record);
   const isRunning = job.status === 'running';
 
   // Restore a per-tab key on mount.
@@ -56,6 +70,16 @@ export function App() {
     setSettings((prev) => ({ ...prev, ...partial }));
   }, []);
 
+  const handleApiKey = useCallback(
+    (value: string) => {
+      setApiKey(value);
+      setTestState({ status: 'idle' }); // a changed key needs a fresh test
+      setModels(FALLBACK_MODELS); // the new key's models are unknown until Test
+      updateSettings({ model: FALLBACK_MODELS[0].name }); // don't run a model the old key revealed
+    },
+    [updateSettings],
+  );
+
   const handlePdf = useCallback(
     (loaded: LoadedPdf) => {
       setPdf(loaded);
@@ -66,24 +90,29 @@ export function App() {
     [reset],
   );
 
-  const loadModels = useCallback(async () => {
-    if (!apiKey.trim()) {
-      setModelsState({ loading: false, error: 'Enter your API key first.' });
+  const handleTest = useCallback(async () => {
+    const key = apiKey.trim();
+    if (!key) {
+      setTestState({ status: 'error', message: 'Enter your API key first.' });
       return;
     }
-    setModelsState({ loading: true, error: null });
+    setTestState({ status: 'testing' });
     try {
-      const found = await listModels(apiKey.trim());
-      setModels(found);
-      setModelsState({ loading: false, error: found.length ? null : 'No usable models for this key.' });
-      if (found.length && !found.some((model) => model.name === settings.model)) {
-        const flash = found.find((model) => /flash/i.test(model.name)) ?? found[0];
-        updateSettings({ model: flash.name });
+      const { models: found, testedModel, elapsedMs, tested, note } = await checkApiKey(key);
+      if (found.length) {
+        setModels(found);
+        updateSettings({ model: pickCheapestModel(found) ?? testedModel });
       }
+      setTestState({
+        status: 'ok',
+        message: tested
+          ? `Tested ${testedModel} in ${(elapsedMs / 1000).toFixed(1)}s · ${found.length} models available`
+          : note ?? `Key valid · ${found.length} models available`,
+      });
     } catch (error) {
-      setModelsState({ loading: false, error: error instanceof Error ? error.message : String(error) });
+      setTestState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
     }
-  }, [apiKey, settings.model, updateSettings]);
+  }, [apiKey, updateSettings]);
 
   const handleRun = useCallback(async () => {
     if (!pdf) {
@@ -107,6 +136,7 @@ export function App() {
       prompt: settings.prompt.trim() || undefined,
       mediaResolution: settings.mediaResolution,
       concurrency: settings.concurrency,
+      timeoutMs: settings.timeoutSec * 1000,
       startPage,
       endPage,
     });
@@ -117,6 +147,8 @@ export function App() {
     ? Math.max(0, Math.min(settings.endPage, pdf.pageCount) - Math.max(1, settings.startPage) + 1)
     : 0;
   const largeJob = selectedPages > 50;
+  const failedPages = job.results.filter((r) => r.error).map((r) => r.pageNumber);
+  const canRetry = (job.status === 'done' || job.status === 'cancelled') && failedPages.length > 0;
 
   return (
     <div className="app">
@@ -130,7 +162,14 @@ export function App() {
         </p>
       </header>
 
-      <ApiKeyInput apiKey={apiKey} onApiKey={setApiKey} remember={rememberKey} onRemember={setRememberKey} />
+      <ApiKeyInput
+        apiKey={apiKey}
+        onApiKey={handleApiKey}
+        remember={rememberKey}
+        onRemember={setRememberKey}
+        onTest={() => void handleTest()}
+        testState={testState}
+      />
 
       <FileDrop onPdf={handlePdf} current={pdf} disabled={isRunning} />
 
@@ -138,16 +177,17 @@ export function App() {
         settings={settings}
         onChange={updateSettings}
         pageCount={pdf?.pageCount ?? 0}
+        selectedPages={selectedPages}
         disabled={isRunning}
         models={models}
-        modelsLoading={modelsState.loading}
-        modelsError={modelsState.error}
-        onLoadModels={() => void loadModels()}
+        keyTested={testState.status === 'ok'}
       />
 
       <div className="run-row">
         <button type="button" className="primary-btn big" onClick={() => void handleRun()} disabled={!canRun}>
-          {isRunning ? 'Running…' : 'Convert to Markdown'}
+          <SwapLabel options={['Convert to Markdown', 'Running…']}>
+            {isRunning ? 'Running…' : 'Convert to Markdown'}
+          </SwapLabel>
         </button>
         {formError && <span className="error-text">{formError}</span>}
       </div>
@@ -166,18 +206,52 @@ export function App() {
         total={job.total}
         failed={job.failed}
         results={job.results}
+        startedAt={job.startedAt}
+        elapsedMs={job.elapsedMs}
         onCancel={cancel}
       />
 
       {job.status === 'error' && <p className="error-text big-error">Error: {job.error}</p>}
 
+      {canRetry && (
+        <RetryPanel
+          models={models}
+          usedModel={job.model}
+          usedDetail={job.mediaResolution}
+          failedPages={failedPages}
+          error={job.actionError}
+          onRetry={(model, detail) => void retry(failedPages, { model, mediaResolution: detail })}
+        />
+      )}
+
+      {(job.status === 'done' || job.status === 'cancelled' || job.status === 'error') && (
+        <CostSummary
+          results={job.results}
+          costByModel={job.costByModel}
+          model={job.model}
+          mediaResolution={job.mediaResolution}
+        />
+      )}
+
       {(job.status === 'done' || job.status === 'cancelled') && job.markdown && (
         <ResultView markdown={job.markdown} fileName={pdf?.file.name ?? 'document.pdf'} />
       )}
 
+      {(lifetime.stats.totalPdfs > 0 || lifetime.stats.totalCostUsd > 0) && (
+        <p className="hint lifetime">
+          Lifetime on this device: <strong>{formatCost(lifetime.stats.totalCostUsd)}</strong> across{' '}
+          {lifetime.stats.totalPages.toLocaleString()} page{lifetime.stats.totalPages === 1 ? '' : 's'} ·{' '}
+          {lifetime.stats.totalPdfs} conversion{lifetime.stats.totalPdfs === 1 ? '' : 's'}{' '}
+          <button type="button" className="link-btn" onClick={lifetime.reset}>
+            reset
+          </button>
+        </p>
+      )}
+
       <footer className="app-footer">
-        Pages are sent directly from your browser to Google Gemini. This site has no server and stores
-        nothing.
+        Pages go straight from your browser to Google Gemini — this site has no server. Your documents
+        and key never leave your browser; the only thing persisted between visits is an anonymous cost
+        tally (no documents, filenames, or keys).
       </footer>
     </div>
   );

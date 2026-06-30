@@ -35,11 +35,22 @@ export async function runOcrPipeline(
 
   const source = await loadPdf(pdfBytes);
   const total = source.getPageCount();
-  const startPage = options.startPage ?? 1;
-  const endPage = options.endPage ?? total;
-  validatePageRange(total, startPage, endPage);
 
-  const count = endPage - startPage + 1;
+  // Either an explicit page subset (e.g. a retry of the failed pages) or a contiguous range.
+  let pageNumbers: number[];
+  if (options.pages?.length) {
+    pageNumbers = [...new Set(options.pages)]
+      .filter((p) => Number.isInteger(p) && p >= 1 && p <= total)
+      .sort((a, b) => a - b);
+    if (pageNumbers.length === 0) throw new Error('No valid pages to process.');
+  } else {
+    const startPage = options.startPage ?? 1;
+    const endPage = options.endPage ?? total;
+    validatePageRange(total, startPage, endPage);
+    pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  }
+
+  const count = pageNumbers.length;
   const results: PageResult[] = new Array(count);
   let completed = 0;
   let nextIndex = 0;
@@ -66,7 +77,7 @@ export async function runOcrPipeline(
       if (internal.signal.aborted) throw internal.signal.reason ?? new DOMException('Aborted', 'AbortError');
       const index = nextIndex++;
       if (index >= count) return;
-      const pageNumber = startPage + index;
+      const pageNumber = pageNumbers[index];
       try {
         const pdf = await extractNext(pageNumber);
         if (internal.signal.aborted) throw internal.signal.reason ?? new DOMException('Aborted', 'AbortError');

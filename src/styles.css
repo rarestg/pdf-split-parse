@@ -93,10 +93,36 @@ body {
   width: 72px;
 }
 
+/* Monospace the API key so it's easy to read/verify when revealed. */
+#api-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Mask the key without type=password (which triggers password-manager save prompts). */
+.text-input.masked {
+  -webkit-text-security: disc;
+}
+
 .key-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Reserve the width of the widest label so toggling a button's text never jogs the
+   layout. Hidden ghost labels size the grid cell; the active label stacks in the same
+   cell. No magic pixel widths — survives font and label changes (Show/Hide, Test/Testing…). */
+.swap {
+  display: inline-grid;
+  place-items: center;
+}
+
+.swap > * {
+  grid-area: 1 / 1;
+}
+
+.swap-ghost {
+  visibility: hidden;
 }
 
 .checkbox-row {
@@ -105,6 +131,11 @@ body {
   gap: 8px;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* Drop the checkbox's user-agent margin so the row starts flush with the panel edge. */
+.checkbox-row input[type='checkbox'] {
+  margin: 0;
 }
 
 .hint {
@@ -116,6 +147,36 @@ body {
 .hint a,
 .app a {
   color: var(--accent);
+}
+
+/* Post-run cost summary: a touch brighter than a plain hint. */
+.cost-summary {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cost-summary p {
+  margin: 0;
+}
+
+/* Per-model token/spend rows (shown only after a mixed-model retry). */
+.cost-by-model {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.cost-timing {
+  margin: 0;
+}
+
+/* Highlight money spent on failed pages / timed-out pages so it's not buried. */
+.cost-failure {
+  color: var(--danger);
 }
 
 .grid {
@@ -184,8 +245,9 @@ button {
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 9px 16px;
-  font-size: 14px;
+  /* Match .ghost-btn geometry so paired buttons (Test/Show, Download/Copy) are the same size. */
+  padding: 8px 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -237,9 +299,20 @@ button {
 
 .prompt-area {
   resize: vertical;
-  min-height: 90px;
+  /* Grow to fit the whole prompt so the default is fully visible without scrolling
+     (Chrome/Safari); the rows attribute is the fallback elsewhere. */
+  field-sizing: content;
+  min-height: 120px;
+  max-height: 60vh;
+  padding: 12px 14px;
+  line-height: 1.6;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
+}
+
+/* Fixed-width digits so the ticking count/seconds don't jog the surrounding text. */
+.progress-status {
+  font-variant-numeric: tabular-nums;
 }
 
 .bar {
@@ -279,6 +352,218 @@ button {
 .error-text {
   color: var(--danger);
   font-size: 13px;
+}
+
+.status-ok {
+  color: var(--ok);
+  font-size: 13px;
+  margin: 0;
+}
+
+.status-err {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Icon + message rows: icon inherits the status color (currentColor) and stays
+   top-aligned with the first line if the message wraps. */
+.status-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.status-line svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* Knock the check/x glyph out of the filled disc using the panel color. */
+.status-line svg .glyph {
+  stroke: var(--panel);
+}
+
+/* Make the model dropdown roomy enough for long ids like gemini-2.5-flash-lite-preview-09-2025 */
+select.text-input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Locked (untested) model select: a restrained accent tint reads as "run the Test
+   above", not "broken". Scoped to .field.is-locked so the concurrency/pages/image-detail
+   inputs keep their plain UA greying when a job is running (they share .text-input). */
+.field.is-locked select.text-input {
+  border-color: rgba(110, 168, 254, 0.35);
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+/* "Why it's locked" popover: always visible in normal flow under the select, with an
+   upward caret pointing at it. JS-free and hover-free by design — a disabled <select>
+   fires neither :hover nor title and is out of the tab order, so the reason lives in
+   DOM reading order. Opaque surface so the caret never double-tints the overlap seam. */
+.lock-note {
+  position: relative;
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+  background: #202838;
+  border: 1px solid rgba(110, 168, 254, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.lock-note::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 14px;
+  width: 9px;
+  height: 9px;
+  background: #202838;
+  border-left: 1px solid rgba(110, 168, 254, 0.35);
+  border-top: 1px solid rgba(110, 168, 254, 0.35);
+  transform: rotate(45deg);
+}
+
+.lock-note strong {
+  font-weight: 600;
+}
+
+.lock-note-icon {
+  color: var(--accent);
+  flex: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Sortable model picker (replaces the model dropdown after a successful Test). */
+.model-table-wrap {
+  overflow-x: auto;
+}
+
+.model-table-wrap.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.model-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.model-table th,
+.model-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: left;
+}
+
+.model-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.model-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.model-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.model-table .pick-col {
+  width: 1%;
+  padding-right: 4px;
+}
+
+.model-table .model-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.model-table tbody tr {
+  cursor: pointer;
+}
+
+.model-table tbody tr:hover {
+  background: rgba(110, 168, 254, 0.06);
+}
+
+.model-table tbody tr.selected {
+  background: rgba(110, 168, 254, 0.12);
+}
+
+.model-table tbody tr.selected .model-id {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sort-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-btn:hover {
+  color: var(--text);
+}
+
+.model-table-note {
+  margin-top: 8px;
+}
+
+/* Rightmost relative-cost column: a red→yellow→green dot, color set inline per row. */
+.model-table .dot-col {
+  width: 1%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cost-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  vertical-align: middle;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* Advanced prompt: toggle on the left, "Reset to default" on the right. */
+.prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .big-error {
@@ -375,4 +660,39 @@ button {
   font-size: 12.5px;
   text-align: center;
   padding-top: 8px;
+}
+
+/* Retry-failed-pages panel: co-located after the progress/failure list. */
+.retry-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retry-head {
+  margin: 0;
+}
+
+.retry-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.retry-controls .field {
+  min-width: 200px;
+}
+
+.retry-controls .primary-btn {
+  white-space: nowrap;
+}
+
+.retry-hint {
+  margin: 0;
+}
+
+/* Lifetime spend tally above the footer. */
+.lifetime {
+  text-align: center;
 }

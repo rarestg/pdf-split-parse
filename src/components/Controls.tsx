@@ -1,88 +1,136 @@
 import { useState } from 'react';
-import type { GeminiModel, MediaResolution } from '../core';
+import { DEFAULT_PROMPT, estimateCost, formatCost, type GeminiModel, type MediaResolution } from '../core';
+import { ModelTable } from './ModelTable';
 
 export interface Settings {
   model: string;
   concurrency: number;
+  /** Per-page request timeout, in seconds. */
+  timeoutSec: number;
   mediaResolution: MediaResolution;
   startPage: number;
   endPage: number;
   prompt: string;
 }
 
+/** Integer field that can be fully cleared/retyped; normalizes (clamps, empty → fallback) on blur. */
+function NumberField({
+  id,
+  label,
+  min,
+  max,
+  value,
+  fallback,
+  disabled,
+  onCommit,
+}: {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  value: number;
+  fallback: number;
+  disabled?: boolean;
+  onCommit: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={min}
+        max={max}
+        className="text-input"
+        value={text}
+        disabled={disabled}
+        onChange={(event) => {
+          setText(event.target.value);
+          const parsed = Number(event.target.value);
+          if (Number.isInteger(parsed) && parsed >= min) onCommit(Math.min(max, parsed));
+        }}
+        onBlur={() => {
+          const normalized = clampInt(text, min, max, fallback);
+          setText(String(normalized));
+          onCommit(normalized);
+        }}
+      />
+    </div>
+  );
+}
+
 interface Props {
   settings: Settings;
   onChange: (partial: Partial<Settings>) => void;
   pageCount: number;
+  /** Selected page count (drives the model table's cost estimate). */
+  selectedPages: number;
   disabled?: boolean;
   models: GeminiModel[];
-  modelsLoading: boolean;
-  modelsError: string | null;
-  onLoadModels: () => void;
+  /** True once a successful key Test has loaded the key's real models. */
+  keyTested: boolean;
 }
 
-export function Controls({
-  settings,
-  onChange,
-  pageCount,
-  disabled,
-  models,
-  modelsLoading,
-  modelsError,
-  onLoadModels,
-}: Props) {
+export function Controls({ settings, onChange, pageCount, selectedPages, disabled, models, keyTested }: Props) {
   const [showPrompt, setShowPrompt] = useState(false);
   const maxPage = pageCount || undefined;
+  const needsTest = !keyTested && !disabled; // locked because untested, not because a job is running
+
+  // Midpoint cost estimate for the selected model at a given image detail, so the
+  // cost impact of low/medium/high is visible right on the options.
+  const detailCost = (resolution: MediaResolution): string => {
+    if (selectedPages <= 0) return '';
+    const est = estimateCost(settings.model, selectedPages, resolution);
+    if (est.costLow === null || est.costHigh === null) return '';
+    return ` (~${formatCost((est.costLow + est.costHigh) / 2)})`;
+  };
 
   return (
     <section className="panel">
-      <div className="grid">
-        <div className="field">
-          <label className="field-label" htmlFor="model">
-            Model
-          </label>
-          <div className="key-row">
-            <input
-              id="model"
-              className="text-input"
-              list="model-list"
-              value={settings.model}
-              spellCheck={false}
-              disabled={disabled}
-              onChange={(event) => onChange({ model: event.target.value })}
-            />
-            <button type="button" className="ghost-btn" onClick={onLoadModels} disabled={disabled || modelsLoading}>
-              {modelsLoading ? '…' : 'Load'}
-            </button>
-          </div>
-          <datalist id="model-list">
-            {models.map((model) => (
-              <option key={model.name} value={model.name}>
-                {model.displayName}
-              </option>
-            ))}
-          </datalist>
-          {modelsError && <span className="error-text">{modelsError}</span>}
-          {!modelsError && !modelsLoading && models.length > 0 && (
-            <span className="muted">{models.length} models available</span>
-          )}
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="concurrency">
-            Parallel pages
-          </label>
-          <input
-            id="concurrency"
-            type="number"
-            min={1}
-            max={16}
-            className="text-input"
-            value={settings.concurrency}
+      <div className={`field${needsTest ? ' is-locked' : ''}`}>
+        <span className="field-label">Model</span>
+        {needsTest ? (
+          <p id="model-lock" className="lock-note" role="note">
+            <svg className="lock-note-icon" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z"
+              />
+            </svg>
+            <span>
+              <strong>Test your key above</strong> to load the models it supports.
+            </span>
+          </p>
+        ) : (
+          <ModelTable
+            models={models}
+            selected={settings.model}
+            onSelect={(model) => onChange({ model })}
+            pages={selectedPages}
+            mediaResolution={settings.mediaResolution}
             disabled={disabled}
-            onChange={(event) => onChange({ concurrency: clampInt(event.target.value, 1, 16, 4) })}
           />
-        </div>
+        )}
+      </div>
+
+      <div className="grid">
+        <NumberField
+          id="concurrency"
+          label="Parallel pages"
+          min={1}
+          max={64}
+          value={settings.concurrency}
+          fallback={4}
+          disabled={disabled}
+          onCommit={(value) => onChange({ concurrency: value })}
+        />
 
         <div className="field">
           <label className="field-label" htmlFor="media">
@@ -95,11 +143,22 @@ export function Controls({
             disabled={disabled}
             onChange={(event) => onChange({ mediaResolution: event.target.value as MediaResolution })}
           >
-            <option value="low">Low (cheapest)</option>
-            <option value="medium">Medium</option>
-            <option value="high">High (dense scans)</option>
+            <option value="low">Low{detailCost('low')}</option>
+            <option value="medium">Medium{detailCost('medium')}</option>
+            <option value="high">High{detailCost('high')}</option>
           </select>
         </div>
+
+        <NumberField
+          id="timeout"
+          label="Page timeout (s)"
+          min={5}
+          max={600}
+          value={settings.timeoutSec}
+          fallback={30}
+          disabled={disabled}
+          onCommit={(value) => onChange({ timeoutSec: value })}
+        />
 
         <div className="field">
           <label className="field-label">Pages</label>
@@ -132,15 +191,22 @@ export function Controls({
         </div>
       </div>
 
-      <button type="button" className="link-btn" onClick={() => setShowPrompt((value) => !value)}>
-        {showPrompt ? '▾' : '▸'} Advanced: OCR prompt
-      </button>
+      <div className="prompt-head">
+        <button type="button" className="link-btn" onClick={() => setShowPrompt((value) => !value)}>
+          {showPrompt ? '▾' : '▸'} Advanced: OCR prompt
+        </button>
+        {showPrompt && settings.prompt.trim() !== DEFAULT_PROMPT.trim() && (
+          <button type="button" className="link-btn" onClick={() => onChange({ prompt: DEFAULT_PROMPT })}>
+            Reset to default
+          </button>
+        )}
+      </div>
       {showPrompt && (
         <textarea
           className="prompt-area"
-          rows={6}
+          rows={16}
           disabled={disabled}
-          placeholder="Leave blank to use the built-in OCR prompt"
+          placeholder="Empty = the built-in OCR prompt is used"
           value={settings.prompt}
           onChange={(event) => onChange({ prompt: event.target.value })}
         />

@@ -13,11 +13,17 @@ export function buildOutputMarkdown(
   model: string,
   results: PageResult[],
 ): string {
-  const lines: string[] = [`# OCR: ${fileName}\n\n`, `_Model: ${model}_\n\n`];
+  const headerModel = model.replace(/^models\//, '').trim();
+  const lines: string[] = [`# OCR: ${fileName}\n\n`, `_Model: ${headerModel}_\n\n`];
   const failed = results.filter((r) => r.error);
 
   for (const result of results) {
     lines.push(`## Page ${result.pageNumber}\n\n`);
+    // Pages re-OCR'd on a different model (a manual retry) get a provenance note.
+    const pageModel = result.model?.replace(/^models\//, '').trim();
+    if (pageModel && pageModel !== headerModel) {
+      lines.push(`_Re-OCR'd with ${pageModel}._\n\n`);
+    }
     if (!result.error) {
       lines.push(result.text || '[Blank page]');
       lines.push('\n\n');

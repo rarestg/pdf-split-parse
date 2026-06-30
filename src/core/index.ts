@@ -9,10 +9,24 @@ export { getPageCount, splitPdf, loadPdf, extractPage, validatePageRange } from 
 export {
   ocrPage,
   listModels,
+  curateModels,
+  checkApiKey,
+  pickCheapestModel,
+  pickSmarterModel,
   GeminiHttpError,
   GeminiFatalError,
   type GeminiModel,
+  type KeyCheckResult,
   type OcrPageParams,
 } from './gemini';
 export { stripOuterMarkdownFence, buildOutputMarkdown } from './markdown';
 export { runOcrPipeline } from './pipeline';
+export {
+  estimateCost,
+  actualCost,
+  formatCost,
+  formatCostRange,
+  modelPricing,
+  type CostEstimate,
+  type ModelPricing,
+} from './cost';

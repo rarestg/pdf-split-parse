@@ -32,7 +32,8 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
         const pageCount = await getPageCount(bytes);
         onPdf({ file, bytes, pageCount });
       } catch (err) {
-        setError(err instanceof Error ? `Could not read PDF: ${err.message}` : 'Could not read PDF.');
+        console.error('PDF read failed:', err); // raw detail for debugging; users see the message below
+        setError(err instanceof Error ? err.message : 'This PDF couldn’t be read.');
       } finally {
         setBusy(false);
       }
@@ -117,8 +118,12 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
         <button type="button" className="ghost-btn" onClick={() => void loadSample()} disabled={disabled || busy}>
           Try the sample PDF
         </button>
-        {error && <span className="error-text">{error}</span>}
       </div>
+      {error && (
+        <p className="error-text big-error" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

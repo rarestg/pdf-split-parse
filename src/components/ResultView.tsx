@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { SwapLabel } from './SwapLabel';
 
 interface Props {
   markdown: string;
@@ -54,7 +55,7 @@ export function ResultView({ markdown, fileName }: Props) {
         </div>
         <div className="actions">
           <button type="button" className="ghost-btn" onClick={() => void copy()}>
-            {copied ? 'Copied' : 'Copy'}
+            <SwapLabel options={['Copy', 'Copied']}>{copied ? 'Copied' : 'Copy'}</SwapLabel>
           </button>
           <button type="button" className="primary-btn" onClick={download}>
             Download .md

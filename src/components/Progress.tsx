@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { PageResult } from '../core';
 import type { JobStatus } from '../hooks/useOcrJob';
 
@@ -7,21 +8,38 @@ interface Props {
   total: number;
   failed: number;
   results: PageResult[];
+  startedAt: number | null;
+  elapsedMs: number;
   onCancel: () => void;
 }
 
-export function Progress({ status, completed, total, failed, results, onCancel }: Props) {
+export function Progress({ status, completed, total, failed, results, startedAt, elapsedMs, onCancel }: Props) {
+  // Tick a local clock while running so the elapsed time updates live; freezes on finish.
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (status !== 'running') return;
+    setNow(performance.now());
+    const id = setInterval(() => setNow(performance.now()), 200);
+    return () => clearInterval(id);
+  }, [status]);
+
   if (status === 'idle') return null;
+
   const pct = total ? Math.round((completed / total) * 100) : 0;
+  const elapsed = status === 'running' && startedAt != null ? Math.max(0, now - startedAt) : elapsedMs;
+  const seconds = `${(elapsed / 1000).toFixed(1)}s`;
+  // Only failures get a row — successes are summarized by the count + bar, so the panel
+  // doesn't grow a line per page on a large document.
+  const failures = results.filter((result) => result.error);
 
   return (
     <section className="panel">
       <div className="row-between">
-        <strong aria-live="polite">
-          {status === 'running' && `OCR-ing… ${completed}/${total}`}
+        <strong className="progress-status" aria-live="polite">
+          {status === 'running' && `OCR-ing… ${completed}/${total} · ${seconds}`}
           {status === 'done' &&
-            `Done · ${total} page${total === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`}
-          {status === 'cancelled' && 'Cancelled'}
+            `Done · ${total} page${total === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''} · ${seconds}`}
+          {status === 'cancelled' && `Cancelled · ${seconds}`}
           {status === 'error' && 'Failed'}
         </strong>
         {status === 'running' && (
@@ -39,12 +57,11 @@ export function Progress({ status, completed, total, failed, results, onCancel }
       >
         <div className="bar-fill" style={{ width: `${pct}%` }} />
       </div>
-      {results.length > 0 && (
+      {failures.length > 0 && (
         <ul className="page-log">
-          {results.slice(-8).map((result, index) => (
-            <li key={`${result.pageNumber}-${index}`} className={result.error ? 'err' : 'ok'}>
-              page {result.pageNumber}:{' '}
-              {result.error ? `error — ${result.error}` : `ok (${(result.elapsedMs / 1000).toFixed(1)}s)`}
+          {failures.map((result, index) => (
+            <li key={`${result.pageNumber}-${index}`} className="err">
+              page {result.pageNumber}: {result.error}
             </li>
           ))}
         </ul>

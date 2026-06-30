@@ -20,6 +20,12 @@ export interface PageResult {
   text: string;
   elapsedMs: number;
   attempts: number;
+  /** The model that produced this page (set per result so a merged retry knows provenance). */
+  model?: string;
+  /** Billed input tokens for this page (from the API's usageMetadata); absent on failure. */
+  inputTokens?: number;
+  /** Billed output tokens (candidates + thinking) for this page; absent on failure. */
+  outputTokens?: number;
   error?: string;
 }
 
@@ -31,14 +37,16 @@ export interface OcrOptions {
   mediaResolution?: MediaResolution;
   /** Max pages processed in parallel. */
   concurrency?: number;
-  /** Retries per page after the first attempt fails. */
+  /** Max back-off retries for a 429 rate-limit / 503 overload. All other failures fail fast (no retry). */
   retries?: number;
   /** Per-request timeout in milliseconds. */
   timeoutMs?: number;
-  /** 1-based first page to process (inclusive). */
+  /** 1-based first page to process (inclusive). Ignored when `pages` is set. */
   startPage?: number;
-  /** 1-based last page to process (inclusive). */
+  /** 1-based last page to process (inclusive). Ignored when `pages` is set. */
   endPage?: number;
+  /** Explicit 1-based page numbers to process (used to retry a failed subset); overrides the range. */
+  pages?: number[];
   /** Abort the whole job (cancels in-flight requests and stops the queue). */
   signal?: AbortSignal;
   /** Called once per finished page, in completion order. */
@@ -54,8 +62,9 @@ export interface OcrPipelineResult {
 
 export const DEFAULT_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_CONCURRENCY = 4;
-export const DEFAULT_RETRIES = 3;
-export const DEFAULT_TIMEOUT_MS = 180_000;
+/** Back-off retries for a 429 rate-limit / 503 overload only; every other failure fails fast and is surfaced for a manual retry. */
+export const DEFAULT_RETRIES = 5;
+export const DEFAULT_TIMEOUT_MS = 30_000;
 export const DEFAULT_MEDIA_RESOLUTION: MediaResolution = 'medium';
 
 export const DEFAULT_PROMPT = `You are a precise OCR engine.
