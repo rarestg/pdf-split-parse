@@ -1,4 +1,4 @@
-# Cloudflare Pages headers (https://developers.cloudflare.com/pages/configuration/headers/)
+# Cloudflare static-asset headers (https://developers.cloudflare.com/workers/static-assets/headers/)
 # The strict connect-src is the privacy guarantee: the page has no third-party
 # egress except Google's Gemini endpoint, so a BYO key can't be sent elsewhere.
 # (A matching <meta> CSP in index.html covers non-Cloudflare hosts; frame-ancestors

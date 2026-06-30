@@ -1,4 +1,0 @@
-# Cloudflare Pages config. Deploy a production build with:
-#   npm run build && npx wrangler pages deploy dist
-name = "pdf-split-parse"
-pages_build_output_dir = "dist"

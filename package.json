@@ -12,7 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
@@ -27,6 +28,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "tsx": "^4.22.4",
     "typescript": "^5.7.3",
-    "vite": "^6.0.11"
+    "vite": "^6.0.11",
+    "wrangler": "^4.93.0"
   }
 }

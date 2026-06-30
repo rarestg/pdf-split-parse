@@ -29,9 +29,10 @@ npm run build      # tsc --noEmit && vite build -> dist/
 npm run preview
 npm run typecheck
 npm run smoke      # core checks; live Gemini call if _local/.env has GEMINI_API_KEY
+npm run deploy     # build, then wrangler deploy to Cloudflare
 ```
 
-Requires Node 20+ from `package.json`. Cloudflare Pages builds are pinned to Node 22 via `.nvmrc`.
+Requires Node 20+ from `package.json`. `.nvmrc` pins Node 22 for local and CI builds.
 
 ## Bring Your Own Key
 
@@ -83,8 +84,8 @@ The parsed `PDFDocument` is reused across the initial run and manual retries. Ex
 - `index.html` - CSP `<meta>` egress lock to self + Google's endpoint.
 - `public/_headers` - Cloudflare headers, including `frame-ancestors`.
 - `vite.config.ts` - Vite config with `base: './'`.
-- `.nvmrc` - Node 22 for Cloudflare Pages.
-- `wrangler.toml` - Cloudflare Pages output config.
+- `.nvmrc` - Node 22 for local and CI builds.
+- `wrangler.jsonc` - Cloudflare Workers Static Assets config; binds the apex custom domain.
 - `scripts/smoke.ts` - Node smoke test for the core.
 - `reference/` - original Python CLI porting reference.
 - `_local/` - gitignored scratch for PDFs, keys, and `.env`.
@@ -118,12 +119,13 @@ Persisted data is limited to optional tab-scoped key storage in `sessionStorage`
 
 ## Deploy
 
+Hosted on Cloudflare Workers Static Assets at <https://pdfsplitparse.com> (config in `wrangler.jsonc`). The Vite build is uploaded as static assets; there is no backend worker.
+
 ```bash
-npm run build
-npx wrangler pages deploy dist
+npm run deploy   # npm run build && wrangler deploy
 ```
 
-Cloudflare Pages settings: build command `npm run build`, output directory `dist`. `public/_headers` is applied automatically; `base: './'` keeps the build origin-agnostic.
+`public/_headers` (the CSP egress lock, including `frame-ancestors`) is honored by Workers Static Assets and applied to the static responses; `base: './'` keeps the build origin-agnostic.
 
 ## Develop And Verify
 

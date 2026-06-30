@@ -2,6 +2,7 @@
 node_modules/
 dist/
 dist-ssr/
+.wrangler/
 
 # Local-only data and secrets (never commit)
 _local/
