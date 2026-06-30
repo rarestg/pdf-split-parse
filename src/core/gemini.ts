@@ -509,7 +509,7 @@ function fatalMessage(error: unknown): string {
       return 'Invalid or unauthorized API key. Create a new key at aistudio.google.com/apikey and check it has Gemini API access.';
     }
     if (error.status === 404 || /\bmodel\b/i.test(error.message)) {
-      return `Model not available for this key: ${error.message}. Use "Load" to pick a supported model.`;
+      return `Model not available for this key: ${error.message}. Use "Test" to pick a supported model.`;
     }
     return error.message;
   }
