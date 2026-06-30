@@ -332,6 +332,15 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Live activity counts in the running status line: in-flight stays neutral; retrying/failed stand out. */
+.stat-retry {
+  color: var(--warn);
+}
+
+.stat-fail {
+  color: var(--danger);
+}
+
 .bar {
   height: 8px;
   background: #0d0f14;

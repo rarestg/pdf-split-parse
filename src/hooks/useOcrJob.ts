@@ -25,6 +25,10 @@ export interface JobState {
   total: number;
   completed: number;
   failed: number;
+  /** Live: requests currently out to Gemini. */
+  inFlight: number;
+  /** Live: pages currently in a 429/503 back-off wait. */
+  retrying: number;
   /** Live results in completion order while running; page order once settled. */
   results: PageResult[];
   markdown: string;
@@ -50,6 +54,8 @@ const INITIAL: JobState = {
   total: 0,
   completed: 0,
   failed: 0,
+  inFlight: 0,
+  retrying: 0,
   results: [],
   markdown: '',
   error: null,
@@ -119,6 +125,16 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
     if (costUsd > 0 || pages > 0) onCompleteRef.current?.({ costUsd, pages, isRetry });
   }, []);
 
+  // Live in-flight/back-off counts from the pipeline. Bail out of the state update when nothing
+  // changed so an unchanged tick doesn't force a re-render.
+  const reportStats = useCallback((stats: { inFlight: number; retrying: number }) => {
+    setState((prev) =>
+      prev.inFlight === stats.inFlight && prev.retrying === stats.retrying
+        ? prev
+        : { ...prev, inFlight: stats.inFlight, retrying: stats.retrying },
+    );
+  }, []);
+
   const run = useCallback(
     async (pdfBytes: Uint8Array, fileName: string, options: RunOptions) => {
       abortRef.current?.abort();
@@ -127,9 +143,14 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
       ctxRef.current = null; // cleared until we have a parsed source to retry from
       const model = options.model?.trim() || DEFAULT_MODEL;
       const startedAt = performance.now();
+      // We know the page count up front (the selected range), so show "0/N" immediately, not "0/0".
+      const plannedTotal =
+        options.pages?.length ??
+        (options.startPage != null && options.endPage != null ? options.endPage - options.startPage + 1 : 0);
       setState({
         ...INITIAL,
         status: 'running',
+        total: Math.max(0, plannedTotal),
         model,
         mediaResolution: options.mediaResolution ?? DEFAULT_MEDIA_RESOLUTION,
         startedAt,
@@ -139,6 +160,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
       try {
         // Parse the PDF once and retain it so retries don't re-parse the whole document.
         const source = await loadPdf(pdfBytes);
+        if (abortRef.current !== controller) return; // superseded during parse — don't claim the retry context
         ctxRef.current = { pdfBytes, fileName, options, source };
         const { markdown, results } = await runOcrPipeline(
           pdfBytes,
@@ -146,7 +168,11 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           {
             ...options,
             signal: controller.signal,
+            onStats: (stats) => {
+              if (abortRef.current === controller) reportStats(stats);
+            },
             onProgress: (result, completed, total) => {
+              if (abortRef.current !== controller) return; // a superseded run must not write state
               collected.push(result);
               setState((prev) => ({
                 ...prev,
@@ -161,6 +187,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           },
           source,
         );
+        if (abortRef.current !== controller) return; // superseded mid-run — don't finalize over the new job
         setState((prev) => ({
           ...prev,
           status: 'done',
@@ -170,10 +197,13 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           results,
           markdown,
           error: null,
+          inFlight: 0,
+          retrying: 0,
           elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
         }));
         fireComplete(false, results.length, invocationCost(model, results));
       } catch (error) {
+        if (abortRef.current !== controller) return; // superseded — leave the new job's state alone
         if (controller.signal.aborted) {
           // Keep whatever pages finished before the cancel so work isn't lost.
           const ordered = [...collected].sort((a, b) => a.pageNumber - b.pageNumber);
@@ -184,6 +214,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             results: ordered,
             markdown,
             failed: ordered.filter((r) => r.error).length,
+            inFlight: 0,
+            retrying: 0,
             elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
           }));
           fireComplete(false, ordered.length, invocationCost(model, ordered));
@@ -192,6 +224,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             ...prev,
             status: 'error',
             error: error instanceof Error ? error.message : String(error),
+            inFlight: 0,
+            retrying: 0,
             elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
           }));
           fireComplete(false, collected.length, invocationCost(model, collected));
@@ -200,7 +234,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
-    [fireComplete],
+    [fireComplete, reportStats],
   );
 
   /** Re-OCR a failed subset of pages (optionally on a different model / image detail) and merge the results in. */
@@ -221,6 +255,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         actionError: null,
         completed: 0,
         total: pageNumbers.length,
+        inFlight: 0,
+        retrying: 0,
         startedAt,
       }));
 
@@ -257,6 +293,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             failed: merged.filter((r) => r.error).length,
             completed: merged.length,
             total: merged.length,
+            inFlight: 0,
+            retrying: 0,
             // The original run's time stays fixed; retry time accrues in its own cumulative counter.
             retryElapsedMs: prev.retryElapsedMs + (performance.now() - startedAt),
             lastRetry: computeLastRetry(prev.results, merged),
@@ -270,7 +308,11 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           mediaResolution: overrides.mediaResolution,
           pages: pageNumbers,
           signal: controller.signal,
+          onStats: (stats) => {
+            if (abortRef.current === controller) reportStats(stats);
+          },
           onProgress: (result, completed, total) => {
+            if (abortRef.current !== controller) return; // a superseded retry must not write state
             retryResults.push({ ...result, retried: true });
             setState((prev) => ({
               ...prev,
@@ -281,9 +323,11 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             }));
           },
         }, ctx.source);
+        if (abortRef.current !== controller) return; // superseded mid-retry — don't merge over the new job
         settle('done');
         fireComplete(true, 0, invocationCost(retryModel, results));
       } catch (error) {
+        if (abortRef.current !== controller) return; // superseded — leave the new job's state alone
         if (controller.signal.aborted) {
           settle('cancelled');
         } else {
@@ -299,6 +343,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
               failed: merged.filter((r) => r.error).length,
               completed: merged.length,
               total: merged.length,
+              inFlight: 0,
+              retrying: 0,
               actionError: error instanceof Error ? error.message : String(error),
               retryElapsedMs: prev.retryElapsedMs + (performance.now() - startedAt),
               lastRetry: computeLastRetry(prev.results, merged),
@@ -310,7 +356,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
-    [fireComplete],
+    [fireComplete, reportStats],
   );
 
   const cancel = useCallback(() => {

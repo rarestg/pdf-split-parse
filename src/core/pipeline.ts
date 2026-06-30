@@ -61,6 +61,17 @@ export async function runOcrPipeline(
   let completed = 0;
   let nextIndex = 0;
 
+  // Live activity, surfaced so the UI can show real throughput: requests currently out vs pages
+  // in a 429/503 back-off wait. ocrPage signals every transition; decrements are guaranteed in its
+  // finally/error paths, so a cancel or fatal abort can't leave these stuck.
+  let inFlight = 0;
+  let retrying = 0;
+  const onActivity = (kind: 'request' | 'retry', delta: 1 | -1): void => {
+    if (kind === 'request') inFlight += delta;
+    else retrying += delta;
+    options.onStats?.({ inFlight, retrying });
+  };
+
   // Internal controller so a fatal error in one worker cancels the others.
   const internal = new AbortController();
   const onExternalAbort = () => internal.abort(options.signal?.reason);
@@ -89,7 +100,7 @@ export async function runOcrPipeline(
         if (internal.signal.aborted) throw internal.signal.reason ?? new DOMException('Aborted', 'AbortError');
         const result = await ocrPage(
           { pageNumber, pdfBytes: pdf },
-          { apiKey: options.apiKey, model, prompt, mediaResolution, retries, timeoutMs, signal: internal.signal },
+          { apiKey: options.apiKey, model, prompt, mediaResolution, retries, timeoutMs, signal: internal.signal, onActivity },
         );
         // Flag a degenerate "success" (a model loop) as a soft warning on the page itself, then
         // hand the SAME annotated result to onProgress so the warning survives live/cancelled merges.

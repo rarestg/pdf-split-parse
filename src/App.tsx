@@ -148,8 +148,8 @@ export function App() {
     : 0;
   const largeJob = selectedPages > 50;
   const settled = job.status === 'done' || job.status === 'cancelled';
-  // A retry is in flight while we still hold the prior document (so panels stay visible, not vanish).
-  const retrying = isRunning && job.markdown !== '';
+  // A re-OCR is in flight while we still hold the prior document (so panels stay visible, not vanish).
+  const reOcr = isRunning && job.markdown !== '';
   const flaggedPages = job.results.filter((r) => r.error || r.warning).map((r) => r.pageNumber);
   const failedPages = job.results.filter((r) => r.error).map((r) => r.pageNumber);
   const suspectPages = job.results.filter((r) => r.warning && !r.error).map((r) => r.pageNumber);
@@ -219,14 +219,16 @@ export function App() {
             completed={job.completed}
             total={job.total}
             failed={job.failed}
+            inFlight={job.inFlight}
+            retrying={job.retrying}
             results={job.results}
             startedAt={job.startedAt}
             elapsedMs={job.elapsedMs}
             retryElapsedMs={job.retryElapsedMs}
-            retrying={retrying}
+            reOcr={reOcr}
             onCancel={cancel}
           />
-          {(settled || retrying || job.status === 'error') && (
+          {(settled || reOcr || job.status === 'error') && (
             <CostSummary
               results={job.results}
               costByModel={job.costByModel}
@@ -245,7 +247,7 @@ export function App() {
 
       {job.status === 'error' && <p className="error-text big-error">Error: {job.error}</p>}
 
-      {(settled || retrying) && job.results.length > 0 && (
+      {(settled || reOcr) &&job.results.length > 0 && (
         <RetryPanel
           models={models}
           usedModel={job.model}
@@ -260,7 +262,7 @@ export function App() {
         />
       )}
 
-      {(settled || retrying) && job.markdown && (
+      {(settled || reOcr) &&job.markdown && (
         <ResultView markdown={job.markdown} fileName={pdf?.file.name ?? 'document.pdf'} />
       )}
 

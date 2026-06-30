@@ -1,6 +1,6 @@
 import { type MediaResolution, type PageInput, type PageResult } from './types';
 import { modelPricing } from './cost';
-import { debugTime } from './debug';
+import { debugLog, debugTime } from './debug';
 import { stripOuterMarkdownFence } from './markdown';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -281,6 +281,8 @@ export interface OcrPageParams {
   retries: number;
   timeoutMs: number;
   signal?: AbortSignal;
+  /** Live activity signal: a request is out (+1)/settled (-1), or a back-off began (+1)/ended (-1). */
+  onActivity?: (kind: 'request' | 'retry', delta: 1 | -1) => void;
 }
 
 /**
@@ -327,49 +329,71 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
     generationConfig,
   });
 
+  const tag = `p${page.pageNumber}`;
+  const pageStartedAt = performance.now(); // whole-page wall clock (incl. back-offs), for the debug log
   let lastError = 'unknown error';
   for (let attempt = 1; attempt <= params.retries + 1; attempt++) {
     const startedAt = performance.now();
+    let data: unknown;
+    params.onActivity?.('request', 1);
     try {
-      const data = await postJson(url, params.apiKey, body, params.timeoutMs, params.signal);
-      const usage = readUsage(data);
-      try {
-        return {
-          pageNumber: page.pageNumber,
-          text: stripOuterMarkdownFence(interpretResponse(data)),
-          elapsedMs: performance.now() - startedAt,
-          attempts: attempt,
-          model,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-        };
-      } catch (interpretError) {
-        // A deterministic page failure (MAX_TOKENS, block) still got billed — keep the
-        // tokens on the failed result so the cost tracker isn't under-counted.
-        if (interpretError instanceof PageError) {
-          return {
-            ...failed(page.pageNumber, attempt, performance.now() - startedAt, errorToString(interpretError), model),
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-          };
-        }
-        throw interpretError;
-      }
+      data = await postJson(url, params.apiKey, body, params.timeoutMs, params.signal);
     } catch (error) {
+      params.onActivity?.('request', -1); // the request settled (failed)
       if (params.signal?.aborted) throw error; // user cancelled — abort the whole job
       const kind = classify(error);
       if (kind === 'fatal') throw new GeminiFatalError(fatalMessage(error));
       if (kind === 'fail') {
+        debugLog(`${tag} ✗ try${attempt} ${errorToString(error)}`);
         return failed(page.pageNumber, attempt, performance.now() - startedAt, errorToString(error), model);
       }
       // backoff: a 429/503 — the only kind we auto-retry, with back-off.
       lastError = errorToString(error);
       if (attempt > params.retries) {
         const tries = `${params.retries} ${params.retries === 1 ? 'retry' : 'retries'}`;
+        debugLog(`${tag} ✗ gave up after ${tries} of back-off (${((performance.now() - pageStartedAt) / 1000).toFixed(1)}s): ${lastError}`);
         const note = `${lastError} — still failing after ${tries} of back-off; wait and retry, or lower "Parallel pages".`;
         return failed(page.pageNumber, attempt, performance.now() - startedAt, note, model);
       }
-      await delay(backoffMs(error, attempt), params.signal);
+      const ms = backoffMs(error, attempt);
+      const httpDesc =
+        error instanceof GeminiHttpError ? `${error.status}${error.apiStatus ? ` ${error.apiStatus}` : ''}` : errorToString(error);
+      debugLog(`${tag} ⏳ try${attempt} ${httpDesc} → backoff ${(ms / 1000).toFixed(1)}s`);
+      params.onActivity?.('retry', 1);
+      try {
+        await delay(ms, params.signal);
+      } finally {
+        params.onActivity?.('retry', -1);
+      }
+      continue;
+    }
+    // The request settled successfully — interpret it.
+    params.onActivity?.('request', -1);
+    const usage = readUsage(data);
+    const elapsedMs = performance.now() - startedAt;
+    try {
+      const text = stripOuterMarkdownFence(interpretResponse(data));
+      const totalSecs = ((performance.now() - pageStartedAt) / 1000).toFixed(1);
+      debugLog(`${tag} ✓ try${attempt} in ${totalSecs}s · ${usage.inputTokens}→${usage.outputTokens} tok`);
+      return {
+        pageNumber: page.pageNumber,
+        text,
+        elapsedMs,
+        attempts: attempt,
+        model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      };
+    } catch (interpretError) {
+      // A deterministic page failure (MAX_TOKENS, block) still got billed — keep its tokens so the cost
+      // tracker isn't under-counted, and surface it as a page error (never let it abort the whole job).
+      const message = errorToString(interpretError);
+      debugLog(`${tag} ✗ try${attempt} ${message}`);
+      return {
+        ...failed(page.pageNumber, attempt, elapsedMs, message, model),
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      };
     }
   }
   return failed(page.pageNumber, params.retries + 1, 0, lastError, model);
