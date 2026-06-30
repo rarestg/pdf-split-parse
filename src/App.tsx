@@ -199,16 +199,18 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <div className="header-row">
-          <h1>
-            PDF <span className="arrow">→</span> Markdown
-          </h1>
+          <div className="header-text">
+            <h1>
+              PDF <span className="arrow">→</span> Markdown
+            </h1>
+            <p className="tagline">
+              Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser
+              to Google Gemini. A whole book can finish in under a minute, and your key and documents only
+              ever go to Google, never to us.
+            </p>
+          </div>
           <ThemeToggle theme={theme} onTheme={setTheme} />
         </div>
-        <p className="tagline">
-          Split a PDF and OCR every page in parallel — up to 128 at once — straight from your browser to
-          Google Gemini. A whole book can finish in under a minute, and your key and documents only ever
-          go to Google, never to us.
-        </p>
       </header>
 
       <ApiKeyInput
@@ -244,7 +246,7 @@ export function App() {
       {largeJob && !isRunning && (
         <p className="hint">
           Large job: {selectedPages} pages, one Gemini request each. Very large PDFs use significant
-          browser memory — if the tab struggles, lower the parallel-pages count or split the range.
+          browser memory. If the tab struggles, lower the parallel-pages count or split the range.
         </p>
       )}
 
@@ -315,12 +317,13 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Google Gemini — this site has no server. Your documents
-          and key never go to this site, only to Google; the only thing persisted between visits is an
-          anonymous cost tally (no documents, filenames, or keys).
+          Pages go straight from your browser to Google Gemini. This site has no server, so your documents
+          and key never go to it, only to Google; the only thing persisted between visits is an anonymous
+          cost tally (no documents, filenames, or keys).
         </p>
         <p className="footer-credit">
-          Made with sauerkraut from the Capital One Lounge in Union Square · © Rares Gosman ·{' '}
+          Made with love from the Capital One Lounge in Union Square
+          <br />© Rareș Gosman ·{' '}
           <a href="https://rares.blog" target="_blank" rel="noreferrer">
             rares.blog
           </a>

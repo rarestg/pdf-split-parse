@@ -42,6 +42,46 @@ function CircleXSolid() {
   );
 }
 
+// Small line-leading marks for the key notes (decorative, so aria-hidden).
+const noteIconProps = {
+  className: 'note-icon',
+  width: 14,
+  height: 14,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+} as const;
+
+function ShieldIcon() {
+  return (
+    <svg {...noteIconProps}>
+      <path d="M12 3l7 3v5c0 4.4-3 7.5-7 8.5-4-1-7-4.1-7-8.5V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+function KeyIcon() {
+  return (
+    <svg {...noteIconProps}>
+      <circle cx="8" cy="16" r="3.2" />
+      <path d="M10.3 13.7 19 5M15.5 8.5l2.5 2.5M18 6l2 2" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg {...noteIconProps}>
+      <path d="M7 17 17 7M8 7h9v9" />
+    </svg>
+  );
+}
+
 export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, testState }: Props) {
   const [reveal, setReveal] = useState(false);
 
@@ -103,16 +143,25 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
         />
         Remember in this browser tab
       </label>
-      <p className="hint">
-        Your key stays in your browser and is sent only to Google&rsquo;s Gemini API — never to us. This
-        app has no backend.{' '}
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
-          Get a key
-        </a>
-        . Bring a paid key: free-tier keys are rate-limited (so much for going parallel) and their content
-        may be human-reviewed by Google, while paid Gemini API content isn&rsquo;t used to improve Google&rsquo;s
-        products.
-      </p>
+      <ul className="key-notes">
+        <li>
+          <ShieldIcon />
+          <span>This app has no backend. Requests go straight from your browser to Google&rsquo;s Gemini API, never to us.</span>
+        </li>
+        <li>
+          <KeyIcon />
+          <span>
+            I recommend a paid key: free-tier keys are rate-limited (so much for going parallel) and their
+            content may be human-reviewed by Google.
+          </span>
+        </li>
+        <li>
+          <ArrowIcon />
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+            Get a key here
+          </a>
+        </li>
+      </ul>
     </section>
   );
 }

@@ -112,8 +112,8 @@ export function Progress({
           {flagged.map((result, index) => (
             <li key={`${result.pageNumber}-${index}`} className={result.error ? 'err' : 'warn'}>
               {result.error
-                ? `page ${result.pageNumber}: ${result.error}`
-                : `page ${result.pageNumber}: suspect — ${result.warning}`}
+                ? `page ${result.pageNumber} failed: ${result.error}`
+                : `page ${result.pageNumber} suspect: ${result.warning}`}
             </li>
           ))}
         </ul>
