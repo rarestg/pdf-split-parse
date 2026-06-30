@@ -370,8 +370,96 @@ body {
 .run-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+/* Rising-sun CTA burst: a one-shot decorative sunburst behind the page, fired
+   from the centered Convert button. Fixed + clipped to the viewport (never adds
+   scrollbars) and painted behind all content (z-index:-1, above the body-
+   propagated page background) so it frames the page without washing over panel
+   text. App.tsx mounts it only while it plays (~1.8s) then unmounts, so it self-
+   cleans and re-fires on the next run. Warm translucent gold reads as "sunrise"
+   on both the light and dark backgrounds without the harshness of a saturated red. */
+.sunburst {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  --ray: rgba(255, 176, 102, 0.18);
+}
+
+:root.dark .sunburst {
+  --ray: rgba(255, 188, 120, 0.22);
+}
+
+.sunburst::before {
+  content: '';
+  position: absolute;
+  left: var(--sun-x, 50vw);
+  top: var(--sun-y, 50vh);
+  width: var(--burst-size, 220vmax);
+  height: var(--burst-size, 220vmax);
+  /* 12 feathered ray wedges (ramp 4deg, hold 4deg, ramp 4deg, 18deg gap). */
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    var(--ray) 4deg,
+    var(--ray) 8deg,
+    transparent 12deg,
+    transparent 30deg
+  );
+  /* Clean hole over the button + feather the rays out before the screen edge. */
+  -webkit-mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
+  transform: translate(-50%, -50%) scale(0.15) rotate(-8deg);
+  opacity: 0;
+  animation: sunburst-rise 1800ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes sunburst-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.15) rotate(-8deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.7) rotate(115deg);
+  }
+}
+
+/* Reduced motion: no rays, spin, or scale — just a brief, faint warm glow. */
+@media (prefers-reduced-motion: reduce) {
+  .sunburst::before {
+    background: radial-gradient(closest-side, var(--ray), transparent 60%);
+    -webkit-mask: none;
+    mask: none;
+    width: 60vmax;
+    height: 60vmax;
+    transform: translate(-50%, -50%) scale(1);
+    animation: sunburst-glow 900ms ease-out forwards;
+  }
+
+  @keyframes sunburst-glow {
+    0% {
+      opacity: 0;
+    }
+    30% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 button {

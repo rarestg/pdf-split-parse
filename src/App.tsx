@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ApiKeyInput, type TestState } from './components/ApiKeyInput';
 import { Controls, type Settings } from './components/Controls';
 import { CostSummary } from './components/CostSummary';
@@ -84,6 +84,14 @@ export function App() {
   const { state: job, run, retry, cancel, reset } = useOcrJob(lifetime.record);
   const isRunning = job.status === 'running';
 
+  // One-shot "rising sun" burst behind the page, fired from the Convert button's
+  // center on run. Mounted only while it plays (~1.8s), then unmounted.
+  const [burst, setBurst] = useState<{ x: number; y: number; size: number; k: number } | null>(null);
+  const runBtnRef = useRef<HTMLButtonElement>(null);
+  const burstTimer = useRef<number>();
+  const burstId = useRef(0);
+  useEffect(() => () => clearTimeout(burstTimer.current), []);
+
   // Restore a per-tab key on mount.
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY);
@@ -163,6 +171,17 @@ export function App() {
       return;
     }
     setFormError(null);
+    // Fire the rising-sun burst from the button's viewport center.
+    const btn = runBtnRef.current;
+    if (btn) {
+      const r = btn.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const reach = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      setBurst({ x, y, size: reach * 2.2, k: ++burstId.current });
+      clearTimeout(burstTimer.current);
+      burstTimer.current = window.setTimeout(() => setBurst(null), 1900);
+    }
     await run(pdf.bytes, pdf.file.name, {
       apiKey: apiKey.trim(),
       model: settings.model,
@@ -197,6 +216,20 @@ export function App() {
 
   return (
     <div className="app">
+      {burst && (
+        <div
+          key={burst.k}
+          className="sunburst"
+          aria-hidden="true"
+          style={
+            {
+              '--sun-x': `${burst.x}px`,
+              '--sun-y': `${burst.y}px`,
+              '--burst-size': `${burst.size}px`,
+            } as CSSProperties
+          }
+        />
+      )}
       <header className="app-header">
         <div className="header-row">
           <div className="header-text">
@@ -205,8 +238,8 @@ export function App() {
             </h1>
             <p className="tagline">
               Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser
-              to Google Gemini. A whole book can finish in under a minute, and your key and documents only
-              ever go to Google, never to us.
+              to Gemini. A whole book can finish in under a minute, and your key and documents only ever
+              go to Gemini&rsquo;s GPUs, never to us.
             </p>
           </div>
           <ThemeToggle theme={theme} onTheme={setTheme} />
@@ -235,7 +268,7 @@ export function App() {
       />
 
       <div className="run-row">
-        <button type="button" className="primary-btn big" onClick={() => void handleRun()} disabled={!canRun}>
+        <button ref={runBtnRef} type="button" className="primary-btn big" onClick={() => void handleRun()} disabled={!canRun}>
           <SwapLabel options={['Convert to Markdown', 'Running…']}>
             {isRunning ? 'Running…' : 'Convert to Markdown'}
           </SwapLabel>
@@ -317,9 +350,9 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Google Gemini. This site has no server, so your documents
-          and key never go to it, only to Google; the only thing persisted between visits is an anonymous
-          cost tally (no documents, filenames, or keys).
+          Pages go straight from your browser to Gemini&rsquo;s GPUs. This site has no server, so your
+          documents and key never touch it; the only thing persisted between visits is an anonymous cost
+          tally (no documents, filenames, or keys).
         </p>
         <p className="footer-credit">
           Made with love from the Capital One Lounge in Union Square

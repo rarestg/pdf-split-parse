@@ -146,13 +146,13 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
       <ul className="key-notes">
         <li>
           <ShieldIcon />
-          <span>This app has no backend. Requests go straight from your browser to Google&rsquo;s Gemini API, never to us.</span>
+          <span>This app has no backend. Requests go straight from your browser to Gemini&rsquo;s API, never to us.</span>
         </li>
         <li>
           <KeyIcon />
           <span>
             I recommend a paid key: free-tier keys are rate-limited (so much for going parallel) and their
-            content may be human-reviewed by Google.
+            content may be human-reviewed.
           </span>
         </li>
         <li>
