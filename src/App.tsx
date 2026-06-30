@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { ApiKeyInput, type TestState } from './components/ApiKeyInput';
 import { Controls, type Settings } from './components/Controls';
 import { CostSummary } from './components/CostSummary';
@@ -88,9 +88,44 @@ export function App() {
   // center on run. Mounted only while it plays (~1.8s), then unmounted.
   const [burst, setBurst] = useState<{ x: number; y: number; size: number; k: number } | null>(null);
   const runBtnRef = useRef<HTMLButtonElement>(null);
+  const sunburstRef = useRef<HTMLDivElement>(null);
   const burstTimer = useRef<number>();
   const burstId = useRef(0);
   useEffect(() => () => clearTimeout(burstTimer.current), []);
+
+  // Sun origin = the Convert button's viewport center; `reach` is the farthest
+  // screen corner so the rays cover the viewport wherever the button sits.
+  const measureBurst = useCallback(() => {
+    const btn = runBtnRef.current;
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const reach = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    return { x, y, size: reach * 2.2 };
+  }, []);
+
+  // A full re-run unmounts result panels in the SAME commit that mounts the burst,
+  // which can collapse the page and clamp the scroll, shifting the button's viewport
+  // position. Re-measure after that commit (before paint, while the rays are still
+  // opacity:0) so the sun anchors to the button's post-reflow spot, not stale coords.
+  useLayoutEffect(() => {
+    if (!burst) return;
+    const m = measureBurst();
+    const node = sunburstRef.current;
+    if (!m || !node) return;
+    node.style.setProperty('--sun-x', `${m.x}px`);
+    node.style.setProperty('--sun-y', `${m.y}px`);
+    node.style.setProperty('--burst-size', `${m.size}px`);
+  }, [burst, measureBurst]);
+
+  // Keep the (tall) result view mounted during a re-run by caching the last settled
+  // markdown, so the page doesn't collapse and jog the scroll out from under the
+  // button. Cleared when a new PDF is loaded (handlePdf).
+  const [lastMarkdown, setLastMarkdown] = useState('');
+  useEffect(() => {
+    if ((job.status === 'done' || job.status === 'cancelled') && job.markdown) setLastMarkdown(job.markdown);
+  }, [job.status, job.markdown]);
 
   // Restore a per-tab key on mount.
   useEffect(() => {
@@ -126,6 +161,7 @@ export function App() {
       setPdf(loaded);
       setSettings((prev) => ({ ...prev, startPage: 1, endPage: loaded.pageCount }));
       setFormError(null);
+      setLastMarkdown('');
       reset();
     },
     [reset],
@@ -171,14 +207,11 @@ export function App() {
       return;
     }
     setFormError(null);
-    // Fire the rising-sun burst from the button's viewport center.
-    const btn = runBtnRef.current;
-    if (btn) {
-      const r = btn.getBoundingClientRect();
-      const x = r.left + r.width / 2;
-      const y = r.top + r.height / 2;
-      const reach = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-      setBurst({ x, y, size: reach * 2.2, k: ++burstId.current });
+    // Fire the rising-sun burst from the button's center (re-anchored post-commit
+    // by the layout effect, in case the re-run collapses the page below it).
+    const m = measureBurst();
+    if (m) {
+      setBurst({ ...m, k: ++burstId.current });
       clearTimeout(burstTimer.current);
       burstTimer.current = window.setTimeout(() => setBurst(null), 1900);
     }
@@ -192,7 +225,7 @@ export function App() {
       startPage,
       endPage,
     });
-  }, [pdf, apiKey, settings, run]);
+  }, [pdf, apiKey, settings, run, measureBurst]);
 
   const canRun = Boolean(apiKey.trim() && pdf && !isRunning);
   const selectedPages = pdf
@@ -218,6 +251,7 @@ export function App() {
     <div className="app">
       {burst && (
         <div
+          ref={sunburstRef}
           key={burst.k}
           className="sunburst"
           aria-hidden="true"
@@ -329,8 +363,8 @@ export function App() {
         />
       )}
 
-      {(settled || reOcr) &&job.markdown && (
-        <ResultView markdown={job.markdown} fileName={pdf?.file.name ?? 'document.pdf'} />
+      {(((settled || reOcr) && job.markdown) || (isRunning && lastMarkdown)) && (
+        <ResultView markdown={job.markdown || lastMarkdown} fileName={pdf?.file.name ?? 'document.pdf'} />
       )}
 
       {(lifetime.stats.totalPdfs > 0 || lifetime.stats.totalCostUsd > 0) && (
