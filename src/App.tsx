@@ -7,6 +7,7 @@ import { Progress } from './components/Progress';
 import { ResultView } from './components/ResultView';
 import { RetryPanel } from './components/RetryPanel';
 import { SwapLabel } from './components/SwapLabel';
+import { ThemeToggle, type Theme } from './components/ThemeToggle';
 import { useLifetimeStats } from './hooks/useLifetimeStats';
 import { useOcrJob } from './hooks/useOcrJob';
 import {
@@ -21,6 +22,7 @@ import {
 } from './core';
 
 const SESSION_KEY = 'pdf-split-parse:gemini-key';
+const THEME_KEY = 'pdf-split-parse:theme';
 
 // Shown (behind the lock) before a key is tested; replaced by the key's real
 // models after "Test". Role tags are derived from the id in Controls.
@@ -46,6 +48,37 @@ export function App() {
   const [models, setModels] = useState<GeminiModel[]>(FALLBACK_MODELS);
   const [testState, setTestState] = useState<TestState>({ status: 'idle' });
   const [formError, setFormError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+    } catch {
+      /* storage blocked (e.g. privacy mode) — fall through to system */
+    }
+    return 'system';
+  });
+
+  // Apply the theme to <html> (matching the pre-paint script), persist the choice,
+  // and follow OS changes only while on "system". Key absent = system.
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (dark: boolean) => {
+      root.classList.toggle('dark', dark);
+      root.style.colorScheme = dark ? 'dark' : 'light';
+    };
+    apply(theme === 'dark' || (theme === 'system' && media.matches));
+    try {
+      if (theme === 'system') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* storage blocked — the theme still applies for this session */
+    }
+    if (theme !== 'system') return;
+    const onChange = (event: MediaQueryListEvent) => apply(event.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [theme]);
 
   const lifetime = useLifetimeStats();
   const { state: job, run, retry, cancel, reset } = useOcrJob(lifetime.record);
@@ -165,12 +198,16 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>
-          PDF <span className="arrow">→</span> Markdown
-        </h1>
+        <div className="header-row">
+          <h1>
+            PDF <span className="arrow">→</span> Markdown
+          </h1>
+          <ThemeToggle theme={theme} onTheme={setTheme} />
+        </div>
         <p className="tagline">
-          Client-side OCR powered by your own Google Gemini key. Your key and documents stay in your
-          browser — the only network calls go straight to Google.
+          Split a PDF and OCR every page in parallel — up to 128 at once — straight from your browser to
+          Google Gemini. A whole book can finish in under a minute, and your key and documents only ever
+          go to Google, never to us.
         </p>
       </header>
 
@@ -206,9 +243,8 @@ export function App() {
 
       {largeJob && !isRunning && (
         <p className="hint">
-          Large job: {selectedPages} pages will be sent to Gemini one request each. Free-tier keys may
-          hit rate limits, and large PDFs use significant browser memory — consider a smaller page range
-          or a paid-tier key.
+          Large job: {selectedPages} pages, one Gemini request each. Very large PDFs use significant
+          browser memory — if the tab struggles, lower the parallel-pages count or split the range.
         </p>
       )}
 
@@ -278,9 +314,17 @@ export function App() {
       )}
 
       <footer className="app-footer">
-        Pages go straight from your browser to Google Gemini — this site has no server. Your documents
-        and key never leave your browser; the only thing persisted between visits is an anonymous cost
-        tally (no documents, filenames, or keys).
+        <p>
+          Pages go straight from your browser to Google Gemini — this site has no server. Your documents
+          and key never go to this site, only to Google; the only thing persisted between visits is an
+          anonymous cost tally (no documents, filenames, or keys).
+        </p>
+        <p className="footer-credit">
+          Made with sauerkraut from the Capital One Lounge in Union Square · © Rares Gosman ·{' '}
+          <a href="https://rares.blog" target="_blank" rel="noreferrer">
+            rares.blog
+          </a>
+        </p>
       </footer>
     </div>
   );

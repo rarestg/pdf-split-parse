@@ -6,7 +6,7 @@ Vite + React wraps a framework-agnostic OCR core that merges the per-page result
 
 ## Features
 
-- **Super-parallel OCR.** Bounded worker pool, default 4 pages at once, configurable up to 64.
+- **Super-parallel OCR.** Bounded worker pool, default 4 pages at once, configurable up to 128 — built for paid keys with real rate limits, so a whole book can finish in well under a minute.
 - **BYO key model picker.** **Test** validates the key, lists usable Gemini models, and shows them in a cost-sorted table.
 - **Cost tracking.** Up-front estimate, measured actual cost from API token counts, per-model retry breakdown, and localStorage lifetime aggregate tally.
 - **No blind retries.** Only 429 rate limits and 503 overloads auto-retry, with back-off and server `RetryInfo`; timeouts, truncation, and other errors surface fast.
@@ -38,7 +38,7 @@ Requires Node 20+ from `package.json`. `.nvmrc` pins Node 22 for local and CI bu
 
 Create a Gemini API key at <https://aistudio.google.com/apikey>, paste it into the app, then click **Test**. The key stays in memory unless **Remember in this browser tab** is checked, which stores it in `sessionStorage` for that tab.
 
-For public deploys, restrict the key by HTTP referrer. Free-tier keys may have submitted content retained by Google; use a paid-tier key for sensitive documents.
+For public deploys, restrict the key by HTTP referrer. Bring a paid key: free-tier keys are rate-limited (which throttles the whole point — parallelism) and their content may be human-reviewed by Google, while paid Gemini API content is not used to improve Google's products.
 
 ## How It Works
 

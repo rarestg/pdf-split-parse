@@ -109,8 +109,9 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
         <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
           Get a key
         </a>
-        . Free-tier keys may have submitted content retained by Google; use a paid-tier key for sensitive
-        documents.
+        . Bring a paid key: free-tier keys are rate-limited (so much for going parallel) and their content
+        may be human-reviewed by Google, while paid Gemini API content isn&rsquo;t used to improve Google&rsquo;s
+        products.
       </p>
     </section>
   );

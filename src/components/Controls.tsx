@@ -125,7 +125,7 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
           id="concurrency"
           label="Parallel pages"
           min={1}
-          max={64}
+          max={128}
           value={settings.concurrency}
           fallback={4}
           disabled={disabled}

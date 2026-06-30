@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Client-side PDF → Markdown OCR using your own Google Gemini API key. No backend; your key and documents never leave the browser.",
+  "description": "Super-parallel client-side PDF → Markdown OCR using your own Google Gemini API key: split a PDF and OCR every page at once (up to 128 in parallel). No backend; your key and documents never leave the browser.",
   "engines": {
     "node": ">=20"
   },
