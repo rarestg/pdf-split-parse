@@ -16,7 +16,10 @@
   },
   // Bind the apex directly. Because the zone is in this same Cloudflare account,
   // `wrangler deploy` provisions the Custom Domain and its proxied DNS record.
-  "routes": [{ "pattern": "pdfsplitparse.com", "custom_domain": true }],
+  "routes": [
+    { "pattern": "pdfsplitparse.com", "custom_domain": true },
+    { "pattern": "www.pdfsplitparse.com", "custom_domain": true }
+  ],
   "workers_dev": false, // Disable the public production *.workers.dev URL; custom domain only.
   "preview_urls": true // Keep preview URLs for PR/branch builds (Cloudflare Workers Builds).
 }

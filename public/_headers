@@ -8,3 +8,9 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin
+
+# Vite content-hashed filenames are immutable, so cache them hard. index.html is
+# not under /assets/, so it keeps Cloudflare's default revalidate-always and
+# deploys take effect immediately.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
