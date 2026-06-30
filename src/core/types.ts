@@ -27,6 +27,10 @@ export interface PageResult {
   /** Billed output tokens (candidates + thinking) for this page; absent on failure. */
   outputTokens?: number;
   error?: string;
+  /** Soft anomaly: the page "succeeded" but the text looks degenerate (e.g. a model loop). Not a hard error. */
+  warning?: string;
+  /** Set when this result came from a manual retry. */
+  retried?: boolean;
 }
 
 export interface OcrOptions {

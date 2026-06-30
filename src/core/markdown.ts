@@ -16,15 +16,18 @@ export function buildOutputMarkdown(
   const headerModel = model.replace(/^models\//, '').trim();
   const lines: string[] = [`# OCR: ${fileName}\n\n`, `_Model: ${headerModel}_\n\n`];
   const failed = results.filter((r) => r.error);
+  const warned = results.filter((r) => r.warning && !r.error);
 
   for (const result of results) {
     lines.push(`## Page ${result.pageNumber}\n\n`);
-    // Pages re-OCR'd on a different model (a manual retry) get a provenance note.
+    // Re-OCR'd pages (a manual retry) get a provenance note, using the per-result model.
     const pageModel = result.model?.replace(/^models\//, '').trim();
-    if (pageModel && pageModel !== headerModel) {
+    if (pageModel && result.retried) {
       lines.push(`_Re-OCR'd with ${pageModel}._\n\n`);
     }
     if (!result.error) {
+      // Soft anomaly note so the degenerate output is flagged inline, not just in the summary.
+      if (result.warning) lines.push(`_Possible OCR anomaly: ${result.warning}. Consider re-OCR._\n\n`);
       lines.push(result.text || '[Blank page]');
       lines.push('\n\n');
     } else {
@@ -37,6 +40,14 @@ export function buildOutputMarkdown(
     lines.push('## Errors\n\n');
     for (const result of failed) {
       lines.push(`- Page ${result.pageNumber}: ${result.error}\n`);
+    }
+    lines.push('\n');
+  }
+
+  if (warned.length) {
+    lines.push('## Warnings\n\n');
+    for (const result of warned) {
+      lines.push(`- Page ${result.pageNumber}: ${result.warning}\n`);
     }
     lines.push('\n');
   }

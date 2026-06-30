@@ -5,7 +5,16 @@
  * is the part that could later be published as a standalone package.
  */
 export * from './types';
-export { getPageCount, splitPdf, loadPdf, extractPage, validatePageRange } from './splitPdf';
+export { detectRepetition } from './anomaly';
+export {
+  getPageCount,
+  splitPdf,
+  loadPdf,
+  extractPage,
+  validatePageRange,
+  parsePageSpec,
+  type ParsedPageSpec,
+} from './splitPdf';
 export {
   ocrPage,
   listModels,

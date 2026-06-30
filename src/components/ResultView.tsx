@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SwapLabel } from './SwapLabel';
@@ -8,7 +8,7 @@ interface Props {
   fileName: string;
 }
 
-export function ResultView({ markdown, fileName }: Props) {
+function ResultViewImpl({ markdown, fileName }: Props) {
   const [tab, setTab] = useState<'preview' | 'source'>('preview');
   const [copied, setCopied] = useState(false);
 
@@ -72,3 +72,6 @@ export function ResultView({ markdown, fileName }: Props) {
     </section>
   );
 }
+
+/** Memoized: a retry's per-page state updates shouldn't re-parse the whole document each time. */
+export const ResultView = memo(ResultViewImpl);

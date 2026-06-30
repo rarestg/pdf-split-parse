@@ -9,11 +9,27 @@ interface Props {
   failed: number;
   results: PageResult[];
   startedAt: number | null;
+  /** Wall-clock of the original run (fixed across retries). */
   elapsedMs: number;
+  /** Cumulative re-OCR time across retries (drives the live timer while a retry runs). */
+  retryElapsedMs: number;
+  /** A retry is in flight: relabel the timer and hide the (now-stale) failure list. */
+  retrying: boolean;
   onCancel: () => void;
 }
 
-export function Progress({ status, completed, total, failed, results, startedAt, elapsedMs, onCancel }: Props) {
+export function Progress({
+  status,
+  completed,
+  total,
+  failed,
+  results,
+  startedAt,
+  elapsedMs,
+  retryElapsedMs,
+  retrying,
+  onCancel,
+}: Props) {
   // Tick a local clock while running so the elapsed time updates live; freezes on finish.
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -26,20 +42,27 @@ export function Progress({ status, completed, total, failed, results, startedAt,
   if (status === 'idle') return null;
 
   const pct = total ? Math.round((completed / total) * 100) : 0;
-  const elapsed = status === 'running' && startedAt != null ? Math.max(0, now - startedAt) : elapsedMs;
+  // While running, the live timer counts from the right base: a fresh run from 0, a retry from the
+  // cumulative re-OCR time (so it keeps incrementing across retries, not from the original run's total).
+  // Clamp the delta so a stale `now` (before the effect ticks) can't flash negative. Once settled it
+  // shows the original run's wall-clock; retry time is reported separately.
+  const base = retrying ? retryElapsedMs : elapsedMs;
+  const elapsed = status === 'running' && startedAt != null ? base + Math.max(0, now - startedAt) : elapsedMs;
   const seconds = `${(elapsed / 1000).toFixed(1)}s`;
-  // Only failures get a row — successes are summarized by the count + bar, so the panel
-  // doesn't grow a line per page on a large document.
-  const failures = results.filter((result) => result.error);
+  const retryNote = retryElapsedMs > 0 ? ` (+${(retryElapsedMs / 1000).toFixed(1)}s re-OCR)` : '';
+  const suspect = results.filter((r) => r.warning && !r.error).length;
+  // Error and suspect rows only — successes are summarized by the count + bar, so the card
+  // doesn't grow a line per page on a large document. Stale during a retry, so hidden then.
+  const flagged = results.filter((r) => r.error || r.warning);
 
   return (
-    <section className="panel">
+    <>
       <div className="row-between">
         <strong className="progress-status" aria-live="polite">
-          {status === 'running' && `OCR-ing… ${completed}/${total} · ${seconds}`}
+          {status === 'running' && `${retrying ? 'Re-OCR-ing' : 'OCR-ing…'} ${completed}/${total} · ${seconds}`}
           {status === 'done' &&
-            `Done · ${total} page${total === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''} · ${seconds}`}
-          {status === 'cancelled' && `Cancelled · ${seconds}`}
+            `Done · ${total} page${total === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}${suspect ? `, ${suspect} suspect` : ''} · ${seconds}${retryNote}`}
+          {status === 'cancelled' && `Cancelled · ${seconds}${retryNote}`}
           {status === 'error' && 'Failed'}
         </strong>
         {status === 'running' && (
@@ -57,15 +80,17 @@ export function Progress({ status, completed, total, failed, results, startedAt,
       >
         <div className="bar-fill" style={{ width: `${pct}%` }} />
       </div>
-      {failures.length > 0 && (
+      {!retrying && flagged.length > 0 && (
         <ul className="page-log">
-          {failures.map((result, index) => (
-            <li key={`${result.pageNumber}-${index}`} className="err">
-              page {result.pageNumber}: {result.error}
+          {flagged.map((result, index) => (
+            <li key={`${result.pageNumber}-${index}`} className={result.error ? 'err' : 'warn'}>
+              {result.error
+                ? `page ${result.pageNumber}: ${result.error}`
+                : `page ${result.pageNumber}: suspect — ${result.warning}`}
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </>
   );
 }

@@ -7,6 +7,7 @@
   --accent: #6ea8fe;
   --accent-strong: #3b82f6;
   --danger: #f1707b;
+  --warn: #e6b450;
   --ok: #5fd0a0;
   --radius: 10px;
   color-scheme: dark;
@@ -149,25 +150,41 @@ body {
   color: var(--accent);
 }
 
-/* Post-run cost summary: a touch brighter than a plain hint. */
+/* Post-run cost summary: folded into the run-report card, set off by a top divider. */
 .cost-summary {
   color: var(--text);
   display: flex;
   flex-direction: column;
   gap: 4px;
+  border-top: 1px solid var(--panel-border);
+  margin-top: 10px;
+  padding-top: 10px;
 }
 
 .cost-summary p {
   margin: 0;
 }
 
-/* Per-model token/spend rows (shown only after a mixed-model retry). */
+/* Per-model breakdown (shown only after a mixed-model retry): an aligned grid, not a table —
+   columns line up, numbers right-aligned and tabular. */
 .cost-by-model {
-  margin: 0;
-  padding-left: 18px;
-  list-style: disc;
-  color: var(--muted);
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 2px 18px;
   font-size: 12.5px;
+  color: var(--muted);
+}
+
+.cost-by-model .cbm-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-by-model .cbm-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
 }
 
 .cost-timing {
@@ -347,6 +364,10 @@ button {
 
 .page-log .err {
   color: var(--danger);
+}
+
+.page-log .warn {
+  color: var(--warn);
 }
 
 .error-text {
@@ -673,6 +694,21 @@ select.text-input {
   margin: 0;
 }
 
+/* Full-width page-spec field: label, input, and its preview/ignored notes stacked. */
+.retry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retry-preview {
+  font-variant-numeric: tabular-nums;
+}
+
+.retry-ignored {
+  color: var(--warn);
+}
+
 .retry-controls {
   display: flex;
   align-items: flex-end;
@@ -686,9 +722,25 @@ select.text-input {
 
 .retry-controls .primary-btn {
   white-space: nowrap;
+  /* Match the inputs' box height (font + padding + border) so the button lines up with the selects
+     to its left instead of sitting low when their bottoms are aligned. */
+  padding: 9px 16px;
+  font-size: 14px;
+  border: 1px solid transparent;
 }
 
 .retry-hint {
+  margin: 0;
+}
+
+/* Collapsed retry affordance (shown when nothing is flagged): a quiet link, not a full card. */
+.retry-expand {
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+/* Last-retry summary line inside the run-report card. */
+.last-retry {
   margin: 0;
 }
 

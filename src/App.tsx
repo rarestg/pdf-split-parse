@@ -147,8 +147,20 @@ export function App() {
     ? Math.max(0, Math.min(settings.endPage, pdf.pageCount) - Math.max(1, settings.startPage) + 1)
     : 0;
   const largeJob = selectedPages > 50;
+  const settled = job.status === 'done' || job.status === 'cancelled';
+  // A retry is in flight while we still hold the prior document (so panels stay visible, not vanish).
+  const retrying = isRunning && job.markdown !== '';
+  const flaggedPages = job.results.filter((r) => r.error || r.warning).map((r) => r.pageNumber);
   const failedPages = job.results.filter((r) => r.error).map((r) => r.pageNumber);
-  const canRetry = (job.status === 'done' || job.status === 'cancelled') && failedPages.length > 0;
+  const suspectPages = job.results.filter((r) => r.warning && !r.error).map((r) => r.pageNumber);
+  const lr = job.lastRetry;
+  const lastRetryOutcome = !lr
+    ? ''
+    : lr.remaining > 0
+      ? `${lr.fixed} fixed, ${lr.remaining} still flagged`
+      : lr.fixed > 0
+        ? `all ${lr.fixed} fixed`
+        : 'none were flagged';
 
   return (
     <div className="app">
@@ -200,40 +212,55 @@ export function App() {
         </p>
       )}
 
-      <Progress
-        status={job.status}
-        completed={job.completed}
-        total={job.total}
-        failed={job.failed}
-        results={job.results}
-        startedAt={job.startedAt}
-        elapsedMs={job.elapsedMs}
-        onCancel={cancel}
-      />
+      {job.status !== 'idle' && (
+        <section className="panel">
+          <Progress
+            status={job.status}
+            completed={job.completed}
+            total={job.total}
+            failed={job.failed}
+            results={job.results}
+            startedAt={job.startedAt}
+            elapsedMs={job.elapsedMs}
+            retryElapsedMs={job.retryElapsedMs}
+            retrying={retrying}
+            onCancel={cancel}
+          />
+          {(settled || retrying || job.status === 'error') && (
+            <CostSummary
+              results={job.results}
+              costByModel={job.costByModel}
+              model={job.model}
+              mediaResolution={job.mediaResolution}
+            />
+          )}
+          {job.lastRetry && (
+            <p className="hint last-retry">
+              Last retry: page{job.lastRetry.pages.length === 1 ? '' : 's'} {job.lastRetry.pages.join(', ')} on{' '}
+              {job.lastRetry.model} ({job.lastRetry.mediaResolution}) — {lastRetryOutcome}.
+            </p>
+          )}
+        </section>
+      )}
 
       {job.status === 'error' && <p className="error-text big-error">Error: {job.error}</p>}
 
-      {canRetry && (
+      {(settled || retrying) && job.results.length > 0 && (
         <RetryPanel
           models={models}
           usedModel={job.model}
           usedDetail={job.mediaResolution}
+          flaggedPages={flaggedPages}
           failedPages={failedPages}
+          suspectPages={suspectPages}
+          pageCount={pdf?.pageCount ?? job.total}
+          disabled={isRunning}
           error={job.actionError}
-          onRetry={(model, detail) => void retry(failedPages, { model, mediaResolution: detail })}
+          onRetry={(pages, model, detail) => void retry(pages, { model, mediaResolution: detail })}
         />
       )}
 
-      {(job.status === 'done' || job.status === 'cancelled' || job.status === 'error') && (
-        <CostSummary
-          results={job.results}
-          costByModel={job.costByModel}
-          model={job.model}
-          mediaResolution={job.mediaResolution}
-        />
-      )}
-
-      {(job.status === 'done' || job.status === 'cancelled') && job.markdown && (
+      {(settled || retrying) && job.markdown && (
         <ResultView markdown={job.markdown} fileName={pdf?.file.name ?? 'document.pdf'} />
       )}
 

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import {
   actualCost,
   estimateCost,
@@ -36,7 +37,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
   if (entries.length === 0) {
     if (unmeasuredFailures === 0) return null; // nothing measured, nothing failed → nothing to say
     return (
-      <div className="cost-summary hint">
+      <div className="cost-summary">
         <p>
           <span className="cost-failure">
             {unmeasuredFailures} page{unmeasuredFailures === 1 ? '' : 's'} failed before any billable
@@ -54,6 +55,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
 
   const perModel = entries.map(([m, t]) => ({
     model: m,
+    billedPages: t.billedPages,
     tokens: t.inputTokens + t.outputTokens,
     cost: actualCost(m, t.inputTokens, t.outputTokens),
   }));
@@ -64,7 +66,9 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
   // Estimate verdict only when a single (priced) model ran — a mixed-model retry makes it apples-to-oranges.
   let verdict = '';
   if (!multiModel && priced.length === 1) {
-    const billedPages = results.filter((r) => (r.inputTokens ?? 0) + (r.outputTokens ?? 0) > 0).length;
+    // Use the model's billed page-attempts (grows with retries) so a same-model retry's extra spend is
+    // compared against an estimate for that many attempts, not the unique page count (else it reads "over").
+    const billedPages = priced[0].billedPages;
     const { costLow, costHigh } = estimateCost(model, billedPages, mediaResolution);
     if (costLow !== null && costHigh !== null) {
       const range = formatCostRange(costLow, costHigh);
@@ -107,7 +111,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
   }
 
   return (
-    <div className="cost-summary hint">
+    <div className="cost-summary">
       <p>
         {priced.length > 0 ? (
           <>
@@ -127,14 +131,20 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
         )}
       </p>
       {multiModel && (
-        <ul className="cost-by-model">
+        <div className="cost-by-model">
+          <span className="cbm-head">Model</span>
+          <span className="cbm-head cbm-num">Pages</span>
+          <span className="cbm-head cbm-num">Tokens</span>
+          <span className="cbm-head cbm-num">Cost</span>
           {perModel.map((p) => (
-            <li key={p.model}>
-              <span className="muted">{p.model}</span> — {p.tokens.toLocaleString()} tokens ·{' '}
-              {p.cost !== null ? formatCost(p.cost) : '—'}
-            </li>
+            <Fragment key={p.model}>
+              <span>{p.model}</span>
+              <span className="cbm-num">{p.billedPages.toLocaleString()}</span>
+              <span className="cbm-num">{p.tokens.toLocaleString()}</span>
+              <span className="cbm-num">{p.cost !== null ? formatCost(p.cost) : '—'}</span>
+            </Fragment>
           ))}
-        </ul>
+        </div>
       )}
       {timing && <p className="cost-timing muted">Per page: {timing}</p>}
     </div>

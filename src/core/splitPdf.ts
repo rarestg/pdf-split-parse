@@ -1,4 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
+import { debugTime } from './debug';
 import type { PageInput } from './types';
 
 const LOAD_OPTS = { updateMetadata: false, ignoreEncryption: true } as const;
@@ -16,8 +17,10 @@ export async function loadPdf(pdfBytes: Uint8Array): Promise<PDFDocument> {
   // pdf-lib can't decrypt and is a strict parser, so its raw failures (e.g.
   // "Expected instance of PDFDict, but got undefined") are meaningless to users.
   let doc: PDFDocument;
+  const done = debugTime('loadPdf');
   try {
     doc = await PDFDocument.load(pdfBytes, LOAD_OPTS);
+    done();
   } catch {
     // Encrypted docs sometimes fail outright; otherwise it's a malformed/unsupported file.
     throw new Error(looksEncrypted(pdfBytes) ? ENCRYPTED_PDF_MESSAGE : MALFORMED_PDF_MESSAGE);
@@ -63,12 +66,44 @@ export function validatePageRange(total: number, startPage: number, endPage: num
   }
 }
 
+export interface ParsedPageSpec { pages: number[]; ignored: string[]; }
+
+/** Parse a free-text page spec ("14, 15, 19-22, 32") against a known page count. Lenient: commas
+ *  and/or whitespace; inclusive ranges (- or –, with or without surrounding spaces); reversed ranges
+ *  swapped; out-of-range clamped/dropped; junk collected into `ignored`. Result deduped + sorted
+ *  ascending. Parse against the DOCUMENT's pageCount so any real page can be requested after a subset run. */
+export function parsePageSpec(spec: string, pageCount: number): ParsedPageSpec {
+  const pages = new Set<number>();
+  const ignored: string[] = [];
+  // Collapse spaces around a dash so "19 - 22" reads as one range token, not "19", "-", "22".
+  const normalized = spec.replace(/\s*[-–]\s*/g, '-');
+  for (const raw of normalized.split(/[\s,]+/).filter(Boolean)) {
+    const range = /^(\d+)\s*[-–]\s*(\d+)$/.exec(raw);
+    if (range) {
+      let a = Number(range[1]); let b = Number(range[2]);
+      if (a > b) [a, b] = [b, a];
+      let added = false;
+      for (let p = Math.max(1, a); p <= Math.min(pageCount, b); p++) { pages.add(p); added = true; }
+      if (!added) ignored.push(raw);
+    } else if (/^\d+$/.test(raw)) {
+      const p = Number(raw);
+      if (p >= 1 && p <= pageCount) pages.add(p); else ignored.push(raw);
+    } else {
+      ignored.push(raw);
+    }
+  }
+  return { pages: [...pages].sort((x, y) => x - y), ignored };
+}
+
 /** Extract a single page (1-based) into a standalone single-page PDF. */
 export async function extractPage(source: PDFDocument, pageNumber: number): Promise<Uint8Array> {
+  const done = debugTime(`extractPage ${pageNumber}`);
   const out = await PDFDocument.create();
   const [copied] = await out.copyPages(source, [pageNumber - 1]);
   out.addPage(copied);
-  return out.save();
+  const bytes = await out.save();
+  done();
+  return bytes;
 }
 
 /**

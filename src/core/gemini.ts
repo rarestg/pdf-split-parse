@@ -1,5 +1,6 @@
 import { type MediaResolution, type PageInput, type PageResult } from './types';
 import { modelPricing } from './cost';
+import { debugTime } from './debug';
 import { stripOuterMarkdownFence } from './markdown';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -311,11 +312,14 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
   const thinking = thinkingConfigFor(model);
   if (thinking) generationConfig.thinkingConfig = thinking;
 
+  const doneB64 = debugTime(`base64 p${page.pageNumber} (${page.pdfBytes.length}b)`);
+  const pdfBase64 = bytesToBase64(page.pdfBytes);
+  doneB64();
   const body = JSON.stringify({
     contents: [
       {
         parts: [
-          { inline_data: { mime_type: 'application/pdf', data: bytesToBase64(page.pdfBytes) } },
+          { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
           { text: params.prompt },
         ],
       },

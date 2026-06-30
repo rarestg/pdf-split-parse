@@ -4,6 +4,7 @@ import {
   buildOutputMarkdown,
   DEFAULT_MEDIA_RESOLUTION,
   DEFAULT_MODEL,
+  loadPdf,
   runOcrPipeline,
   type MediaResolution,
   type OcrOptions,
@@ -17,7 +18,7 @@ export type JobStatus = 'idle' | 'running' | 'done' | 'error' | 'cancelled';
  * source of truth for cost: a retry replaces a failed page in `results`, but its original billed
  * tokens (e.g. a MAX_TOKENS failure that still got charged) stay counted here.
  */
-export type CostByModel = Record<string, { inputTokens: number; outputTokens: number }>;
+export type CostByModel = Record<string, { inputTokens: number; outputTokens: number; billedPages: number }>;
 
 export interface JobState {
   status: JobStatus;
@@ -35,9 +36,13 @@ export interface JobState {
   mediaResolution: MediaResolution;
   /** performance.now() at the start of the current operation; null until a run begins. */
   startedAt: number | null;
-  /** Cumulative wall-clock OCR time in ms (run + any retries). */
+  /** Wall-clock time of the original run, in ms (stays fixed across retries). */
   elapsedMs: number;
+  /** Cumulative wall-clock time spent on re-OCR retries, in ms (0 until the first retry). */
+  retryElapsedMs: number;
   costByModel: CostByModel;
+  /** Summary of the most recent manual retry (null until one runs; reset by a fresh run). */
+  lastRetry: { pages: number[]; model: string; mediaResolution: MediaResolution; fixed: number; remaining: number } | null;
 }
 
 const INITIAL: JobState = {
@@ -53,7 +58,9 @@ const INITIAL: JobState = {
   mediaResolution: DEFAULT_MEDIA_RESOLUTION,
   startedAt: null,
   elapsedMs: 0,
+  retryElapsedMs: 0,
   costByModel: {},
+  lastRetry: null,
 };
 
 export type RunOptions = Omit<OcrOptions, 'signal' | 'onProgress'>;
@@ -68,12 +75,14 @@ export interface CompletionSummary {
 
 /** Add one result's billed tokens to the per-model ledger (immutably). */
 function addTokens(ledger: CostByModel, model: string, result: PageResult): CostByModel {
-  const current = ledger[model] ?? { inputTokens: 0, outputTokens: 0 };
+  const current = ledger[model] ?? { inputTokens: 0, outputTokens: 0, billedPages: 0 };
+  const billed = (result.inputTokens ?? 0) + (result.outputTokens ?? 0) > 0;
   return {
     ...ledger,
     [model]: {
       inputTokens: current.inputTokens + (result.inputTokens ?? 0),
       outputTokens: current.outputTokens + (result.outputTokens ?? 0),
+      billedPages: current.billedPages + (billed ? 1 : 0),
     },
   };
 }
@@ -95,8 +104,14 @@ function mergeResults(base: PageResult[], updates: PageResult[]): PageResult[] {
 export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
   const [state, setState] = useState<JobState>(INITIAL);
   const abortRef = useRef<AbortController | null>(null);
-  // Retained so a retry can re-run a failed subset on the same PDF with the same base options.
-  const ctxRef = useRef<{ pdfBytes: Uint8Array; fileName: string; options: RunOptions } | null>(null);
+  // Retained so a retry can re-run a failed subset on the same PDF with the same base options,
+  // reusing the already-parsed document (`source`) instead of re-parsing the whole PDF each retry.
+  const ctxRef = useRef<{
+    pdfBytes: Uint8Array;
+    fileName: string;
+    options: RunOptions;
+    source: Awaited<ReturnType<typeof loadPdf>>;
+  } | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
@@ -109,7 +124,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      ctxRef.current = { pdfBytes, fileName, options };
+      ctxRef.current = null; // cleared until we have a parsed source to retry from
       const model = options.model?.trim() || DEFAULT_MODEL;
       const startedAt = performance.now();
       setState({
@@ -122,22 +137,30 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
 
       const collected: PageResult[] = [];
       try {
-        const { markdown, results } = await runOcrPipeline(pdfBytes, fileName, {
-          ...options,
-          signal: controller.signal,
-          onProgress: (result, completed, total) => {
-            collected.push(result);
-            setState((prev) => ({
-              ...prev,
-              status: 'running',
-              total,
-              completed,
-              failed: prev.failed + (result.error ? 1 : 0),
-              results: [...prev.results, result],
-              costByModel: addTokens(prev.costByModel, model, result),
-            }));
+        // Parse the PDF once and retain it so retries don't re-parse the whole document.
+        const source = await loadPdf(pdfBytes);
+        ctxRef.current = { pdfBytes, fileName, options, source };
+        const { markdown, results } = await runOcrPipeline(
+          pdfBytes,
+          fileName,
+          {
+            ...options,
+            signal: controller.signal,
+            onProgress: (result, completed, total) => {
+              collected.push(result);
+              setState((prev) => ({
+                ...prev,
+                status: 'running',
+                total,
+                completed,
+                failed: prev.failed + (result.error ? 1 : 0),
+                results: [...prev.results, result],
+                costByModel: addTokens(prev.costByModel, model, result),
+              }));
+            },
           },
-        });
+          source,
+        );
         setState((prev) => ({
           ...prev,
           status: 'done',
@@ -201,7 +224,27 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         startedAt,
       }));
 
+      // Tag results as retried at capture time so every merge path (settle, cancel, fatal) carries it.
       const retryResults: PageResult[] = [];
+      // How many of the requested pages this retry fixed vs. left flagged, for the "last retry" line.
+      const computeLastRetry = (prevResults: PageResult[], merged: PageResult[]): JobState['lastRetry'] => {
+        const flaggedBefore = new Set(prevResults.filter((r) => r.error || r.warning).map((r) => r.pageNumber));
+        const byPage = new Map(merged.map((r) => [r.pageNumber, r]));
+        let fixed = 0;
+        let remaining = 0;
+        for (const p of pageNumbers) {
+          const m = byPage.get(p);
+          if (m && (m.error || m.warning)) remaining += 1;
+          else if (flaggedBefore.has(p)) fixed += 1;
+        }
+        return {
+          pages: [...pageNumbers].sort((a, b) => a - b),
+          model: retryModel,
+          mediaResolution: overrides.mediaResolution,
+          fixed,
+          remaining,
+        };
+      };
       const settle = (status: 'done' | 'cancelled') =>
         setState((prev) => {
           const merged = mergeResults(prev.results, retryResults);
@@ -214,7 +257,9 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             failed: merged.filter((r) => r.error).length,
             completed: merged.length,
             total: merged.length,
-            elapsedMs: prev.elapsedMs + (performance.now() - startedAt),
+            // The original run's time stays fixed; retry time accrues in its own cumulative counter.
+            retryElapsedMs: prev.retryElapsedMs + (performance.now() - startedAt),
+            lastRetry: computeLastRetry(prev.results, merged),
           };
         });
 
@@ -226,7 +271,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           pages: pageNumbers,
           signal: controller.signal,
           onProgress: (result, completed, total) => {
-            retryResults.push(result);
+            retryResults.push({ ...result, retried: true });
             setState((prev) => ({
               ...prev,
               status: 'running',
@@ -235,7 +280,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
               costByModel: addTokens(prev.costByModel, retryModel, result),
             }));
           },
-        });
+        }, ctx.source);
         settle('done');
         fireComplete(true, 0, invocationCost(retryModel, results));
       } catch (error) {
@@ -255,7 +300,8 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
               completed: merged.length,
               total: merged.length,
               actionError: error instanceof Error ? error.message : String(error),
-              elapsedMs: prev.elapsedMs + (performance.now() - startedAt),
+              retryElapsedMs: prev.retryElapsedMs + (performance.now() - startedAt),
+              lastRetry: computeLastRetry(prev.results, merged),
             };
           });
         }

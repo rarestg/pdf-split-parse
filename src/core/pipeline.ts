@@ -1,3 +1,6 @@
+import type { PDFDocument } from 'pdf-lib';
+import { detectRepetition } from './anomaly';
+import { debugLog } from './debug';
 import { GeminiFatalError, ocrPage } from './gemini';
 import { buildOutputMarkdown } from './markdown';
 import { extractPage, loadPdf, validatePageRange } from './splitPdf';
@@ -23,6 +26,8 @@ export async function runOcrPipeline(
   pdfBytes: Uint8Array,
   fileName: string,
   options: OcrOptions,
+  /** A pre-parsed document to reuse (a retry passes the run's, avoiding a full re-parse). */
+  preloaded?: PDFDocument,
 ): Promise<OcrPipelineResult> {
   if (!options.apiKey?.trim()) throw new Error('A Gemini API key is required.');
 
@@ -33,7 +38,8 @@ export async function runOcrPipeline(
   const retries = Math.max(0, options.retries ?? DEFAULT_RETRIES);
   const timeoutMs = Math.max(1000, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
-  const source = await loadPdf(pdfBytes);
+  // Reuse the already-parsed document when given (retries) instead of re-parsing the whole PDF.
+  const source = preloaded ?? (await loadPdf(pdfBytes));
   const total = source.getPageCount();
 
   // Either an explicit page subset (e.g. a retry of the failed pages) or a contiguous range.
@@ -85,9 +91,12 @@ export async function runOcrPipeline(
           { pageNumber, pdfBytes: pdf },
           { apiKey: options.apiKey, model, prompt, mediaResolution, retries, timeoutMs, signal: internal.signal },
         );
-        results[index] = result;
+        // Flag a degenerate "success" (a model loop) as a soft warning on the page itself, then
+        // hand the SAME annotated result to onProgress so the warning survives live/cancelled merges.
+        const finalResult = result.error ? result : { ...result, warning: detectRepetition(result.text) };
+        results[index] = finalResult;
         completed += 1;
-        options.onProgress?.(result, completed, count);
+        options.onProgress?.(finalResult, completed, count);
       } catch (error) {
         internal.abort(error); // fatal error or user cancel — stop sibling workers
         throw error;
@@ -95,6 +104,7 @@ export async function runOcrPipeline(
     }
   };
 
+  debugLog(`pipeline: ${count} page(s), concurrency ${concurrency}, ${preloaded ? 'reused source' : 'parsed source'}`);
   try {
     const workerCount = Math.min(concurrency, count);
     await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
