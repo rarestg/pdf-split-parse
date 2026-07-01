@@ -372,7 +372,7 @@ export function App() {
           Lifetime on this device: <strong>{formatCost(lifetime.stats.totalCostUsd)}</strong> across{' '}
           {lifetime.stats.totalPages.toLocaleString()} page{lifetime.stats.totalPages === 1 ? '' : 's'} ·{' '}
           {lifetime.stats.totalPdfs} conversion{lifetime.stats.totalPdfs === 1 ? '' : 's'}{' '}
-          <button type="button" className="link-btn" onClick={lifetime.reset}>
+          <button type="button" className="reset-pill" onClick={lifetime.reset}>
             reset
           </button>
         </p>

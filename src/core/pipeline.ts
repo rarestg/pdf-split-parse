@@ -128,6 +128,6 @@ export async function runOcrPipeline(
     options.signal?.removeEventListener('abort', onExternalAbort);
   }
 
-  const markdown = buildOutputMarkdown(fileName, model, results);
+  const markdown = buildOutputMarkdown(results);
   return { results, markdown, fileName, model };
 }

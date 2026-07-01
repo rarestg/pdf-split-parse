@@ -35,7 +35,7 @@ export interface JobState {
   error: string | null;
   /** Set when a retry (not the main run) failed without losing the existing document. */
   actionError: string | null;
-  /** The primary model + image detail the original run used (drives the markdown + cost-summary header). */
+  /** The primary model + image detail the original run used (drives the cost-summary header). */
   model: string;
   mediaResolution: MediaResolution;
   /** performance.now() at the start of the current operation; null until a run begins. */
@@ -207,7 +207,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         if (controller.signal.aborted) {
           // Keep whatever pages finished before the cancel so work isn't lost.
           const ordered = [...collected].sort((a, b) => a.pageNumber - b.pageNumber);
-          const markdown = ordered.length ? buildOutputMarkdown(fileName, model, ordered) : '';
+          const markdown = ordered.length ? buildOutputMarkdown(ordered) : '';
           setState((prev) => ({
             ...prev,
             status: 'cancelled',
@@ -288,8 +288,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
             ...prev,
             status,
             results: merged,
-            // Header stays the ORIGINAL model; only re-OCR'd pages get a provenance note.
-            markdown: buildOutputMarkdown(ctx.fileName, prev.model, merged),
+            markdown: buildOutputMarkdown(merged),
             failed: merged.filter((r) => r.error).length,
             completed: merged.length,
             total: merged.length,
@@ -339,7 +338,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
               ...prev,
               status: 'done',
               results: merged,
-              markdown: buildOutputMarkdown(ctx.fileName, prev.model, merged),
+              markdown: buildOutputMarkdown(merged),
               failed: merged.filter((r) => r.error).length,
               completed: merged.length,
               total: merged.length,
