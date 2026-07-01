@@ -22,6 +22,25 @@ interface Props {
   onCancel: () => void;
 }
 
+// Settled status affordance: a filled disc in the status color with the glyph
+// knocked out in the panel color (matches the ApiKeyInput status icons).
+function StatusIcon({ kind }: { kind: 'ok' | 'warn' | 'danger' }) {
+  const glyph =
+    kind === 'ok' ? (
+      <path className="glyph" d="M4.5 8.2l2.2 2.2 4.6-4.8" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    ) : kind === 'warn' ? (
+      <path className="glyph" d="M8 4.4v4.2M8 11.1v.05" fill="none" strokeWidth="1.6" strokeLinecap="round" />
+    ) : (
+      <path className="glyph" d="M5.5 5.5l5 5M10.5 5.5l-5 5" fill="none" strokeWidth="1.6" strokeLinecap="round" />
+    );
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" fill="currentColor" />
+      {glyph}
+    </svg>
+  );
+}
+
 export function Progress({
   status,
   completed,
@@ -63,41 +82,57 @@ export function Progress({
 
   return (
     <>
-      <div className="row-between">
-        {/* Only the stable "{label} {completed}/{total}" is announced; the volatile live counts and
-            ticking seconds are aria-hidden so a screen reader isn't narrated on every tick. */}
-        <strong className="progress-status" aria-live="polite">
-          {status === 'running' && (
-            <>
-              {reOcr ? 'Re-OCR-ing' : 'OCR-ing…'} {completed}/{total}
-              {inFlight > 0 && <span aria-hidden="true"> · {inFlight} in flight</span>}
-              {retrying > 0 && (
-                <span className="stat-retry" aria-hidden="true">
-                  {' '}
-                  · {retrying} retrying
+      {(() => {
+        // Status tone: failures dominate, then suspects, else clean; cancelled=warn, error=danger.
+        const doneKind = failed > 0 ? 'danger' : suspect > 0 ? 'warn' : 'ok';
+        const kind = status === 'error' ? 'danger' : status === 'cancelled' ? 'warn' : doneKind;
+        // Co-headline meta beside the status word (pages · time), truthful per state.
+        const meta =
+          status === 'done'
+            ? `${total} page${total === 1 ? '' : 's'} · ${seconds}${retryNote}`
+            : status === 'cancelled'
+              ? `${completed}/${total} pages · ${seconds}${retryNote}`
+              : status === 'error' && total
+                ? `${completed}/${total} pages · ${seconds}`
+                : '';
+        return (
+          <div className="row-between">
+            {/* Only the stable status/label is announced; volatile live counts and ticking
+                seconds are aria-hidden so a screen reader isn't narrated on every tick. */}
+            <div className={`report-status ${status === 'running' ? '' : kind}`} aria-live="polite">
+              {status === 'running' ? (
+                <span className="progress-status">
+                  {reOcr ? 'Re-OCR-ing' : 'OCR-ing…'} {completed}/{total}
+                  {inFlight > 0 && <span aria-hidden="true"> · {inFlight} in flight</span>}
+                  {retrying > 0 && (
+                    <span className="stat-retry" aria-hidden="true"> · {retrying} retrying</span>
+                  )}
+                  {!reOcr && failed > 0 && (
+                    <span className="stat-fail" aria-hidden="true"> · {failed} failed</span>
+                  )}
+                  <span aria-hidden="true"> · {seconds}</span>
                 </span>
+              ) : (
+                <>
+                  <StatusIcon kind={kind} />
+                  <span>
+                    {status === 'done' &&
+                      `Done${failed ? `, ${failed} failed` : ''}${suspect ? `, ${suspect} suspect` : ''}`}
+                    {status === 'cancelled' && 'Cancelled'}
+                    {status === 'error' && 'Failed'}
+                  </span>
+                  {meta && <span className="report-meta">{meta}</span>}
+                </>
               )}
-              {/* `failed` is the whole-doc count; it's stale for a re-OCR subset, so show it only on a fresh run. */}
-              {!reOcr && failed > 0 && (
-                <span className="stat-fail" aria-hidden="true">
-                  {' '}
-                  · {failed} failed
-                </span>
-              )}
-              <span aria-hidden="true"> · {seconds}</span>
-            </>
-          )}
-          {status === 'done' &&
-            `Done · ${total} page${total === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}${suspect ? `, ${suspect} suspect` : ''} · ${seconds}${retryNote}`}
-          {status === 'cancelled' && `Cancelled · ${seconds}${retryNote}`}
-          {status === 'error' && 'Failed'}
-        </strong>
-        {status === 'running' && (
-          <button type="button" className="ghost-btn" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
-      </div>
+            </div>
+            {status === 'running' && (
+              <button type="button" className="ghost-btn" onClick={onCancel}>
+                Cancel
+              </button>
+            )}
+          </div>
+        );
+      })()}
       <div
         className="bar"
         role="progressbar"
