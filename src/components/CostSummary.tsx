@@ -25,6 +25,19 @@ function rendersZero(amount: number): boolean {
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
+// Small chip/note glyphs (decorative; text carries the meaning).
+const CheckMini = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 8.4l3 3 7-7.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const AlertMini = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 2l6 11H2z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="M8 6.4v3M8 11.3v.05" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
 /** Real cost of a finished job (from measured tokens per model), compared to the pre-run estimate. */
 export function CostSummary({ results, costByModel, model, mediaResolution }: Props) {
   const entries = Object.entries(costByModel).filter(([, t]) => t.inputTokens + t.outputTokens > 0);
@@ -38,11 +51,9 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
     if (unmeasuredFailures === 0) return null; // nothing measured, nothing failed → nothing to say
     return (
       <div className="cost-summary">
-        <p>
-          <span className="cost-failure">
-            {unmeasuredFailures} page{unmeasuredFailures === 1 ? '' : 's'} failed before any billable
-            response (no cost reported).
-          </span>
+        <p className="cost-note">
+          <AlertMini /> {unmeasuredFailures} page{unmeasuredFailures === 1 ? '' : 's'} failed before any
+          billable response (no cost reported).
         </p>
       </div>
     );
@@ -64,7 +75,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
   const multiModel = entries.length > 1;
 
   // Estimate verdict only when a single (priced) model ran — a mixed-model retry makes it apples-to-oranges.
-  let verdict = '';
+  let verdict: { kind: 'ok' | 'warn'; text: string } | null = null;
   if (!multiModel && priced.length === 1) {
     // Use the model's billed page-attempts (grows with retries) so a same-model retry's extra spend is
     // compared against an estimate for that many attempts, not the unique page count (else it reads "over").
@@ -73,15 +84,19 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
     if (costLow !== null && costHigh !== null) {
       const range = formatCostRange(costLow, costHigh);
       if (total >= costLow && total <= costHigh) {
-        verdict = ` — within the estimated ${range} ✓`;
+        verdict = { kind: 'ok', text: `within estimate ${range}` };
       } else {
         const over = total > costHigh;
         const delta = over ? total - costHigh : costLow - total;
-        if (rendersZero(delta)) verdict = ` — in line with the estimated ${range}`;
-        else verdict = ` — ${formatCost(delta)} ${over ? 'over' : 'under'} the estimated ${range}`;
+        verdict = rendersZero(delta)
+          ? { kind: 'ok', text: `in line with estimate ${range}` }
+          : { kind: 'warn', text: `${formatCost(delta)} ${over ? 'over' : 'under'} estimate ${range}` };
       }
     }
   }
+  const totalBilledPages = perModel.reduce((sum, p) => sum + p.billedPages, 0);
+  // In a mixed run, `total` sums PRICED rows only; flag when unpriced models are excluded.
+  const unpricedModels = perModel.length - priced.length;
 
   // Failure note (annotation only — never added to the total above).
   const noteParts: string[] = [];
@@ -112,41 +127,86 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
 
   return (
     <div className="cost-summary">
-      <p>
-        {priced.length > 0 ? (
-          <>
-            Actual cost ≈ <strong>{formatCost(total)}</strong> · {tokenBreakdown}
-            {verdict}.
-          </>
-        ) : (
-          <>
-            Used {tokenBreakdown} on {entries.map(([m]) => m).join(', ')} — no price in the table to cost it.
-          </>
-        )}
-        {note && (
-          <>
-            {' '}
-            <span className="cost-failure">{note}</span>
-          </>
-        )}
-      </p>
-      {multiModel && (
-        <div className="cost-by-model">
-          <span className="cbm-head">Model</span>
-          <span className="cbm-head cbm-num">Pages</span>
-          <span className="cbm-head cbm-num">Tokens</span>
-          <span className="cbm-head cbm-num">Cost</span>
-          {perModel.map((p) => (
-            <Fragment key={p.model}>
-              <span>{p.model}</span>
-              <span className="cbm-num">{p.billedPages.toLocaleString()}</span>
-              <span className="cbm-num">{p.tokens.toLocaleString()}</span>
-              <span className="cbm-num">{p.cost !== null ? formatCost(p.cost) : '—'}</span>
-            </Fragment>
-          ))}
+      {priced.length > 0 ? (
+        <div className="cost-hero">
+          <span className="cost-eyebrow">Actual cost</span>
+          <div className="cost-hero-row">
+            <span className="cost-amount">{formatCost(total)}</span>
+            {verdict && (
+              <span className={`verdict-chip ${verdict.kind}`}>
+                {verdict.kind === 'ok' ? <CheckMini /> : <AlertMini />}
+                {verdict.text}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="cost-hero">
+          <span className="cost-eyebrow">Tokens used</span>
+          <div className="cost-hero-row">
+            <span className="cost-amount unpriced">{tokenBreakdown}</span>
+          </div>
+          <p className="mixed-note">
+            On {entries.map(([m]) => m).join(', ')} — no price in the table to cost it.
+          </p>
         </div>
       )}
-      {timing && <p className="cost-timing muted">Per page: {timing}</p>}
+
+      {note && (
+        <p className="cost-note">
+          <AlertMini /> {note}
+        </p>
+      )}
+
+      {multiModel && (
+        <>
+          <p className="mixed-note">
+            Mixed models — no single estimate comparison.
+            {unpricedModels > 0 &&
+              ` Cost excludes ${unpricedModels} unpriced model${unpricedModels === 1 ? '' : 's'}.`}
+          </p>
+          <div className="cost-by-model">
+            <span className="cbm-head">Model</span>
+            <span className="cbm-head cbm-num">Pages</span>
+            <span className="cbm-head cbm-num">Tokens</span>
+            <span className="cbm-head cbm-num">Cost</span>
+            {perModel.map((p) => (
+              <Fragment key={p.model}>
+                <span className="cbm-model">{p.model}</span>
+                <span className="cbm-num">{p.billedPages.toLocaleString()}</span>
+                <span className="cbm-num">{p.tokens.toLocaleString()}</span>
+                <span className="cbm-num">{p.cost !== null ? formatCost(p.cost) : '—'}</span>
+              </Fragment>
+            ))}
+            <span className="cbm-total-lbl">Total</span>
+            <span className="cbm-num cbm-total">{totalBilledPages.toLocaleString()}</span>
+            <span className="cbm-num cbm-total">{totalTokens.toLocaleString()}</span>
+            <span className="cbm-num cbm-total">{formatCost(total)}</span>
+          </div>
+        </>
+      )}
+
+      {((!multiModel && priced.length > 0) || timing) && (
+        <dl className="cost-rows">
+          {!multiModel && priced.length > 0 && (
+            <>
+              <dt>Tokens</dt>
+              <dd>
+                {totalTokens.toLocaleString()}{' '}
+                <span className="sub">
+                  · {inputTokens.toLocaleString()} in / {outputTokens.toLocaleString()} out
+                </span>
+              </dd>
+            </>
+          )}
+          {timing && (
+            <>
+              <dt>Per page</dt>
+              <dd>{timing}</dd>
+            </>
+          )}
+        </dl>
+      )}
     </div>
   );
 }

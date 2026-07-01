@@ -7,50 +7,17 @@ export function stripOuterMarkdownFence(text: string): string {
   return match ? match[1].trim() : trimmed;
 }
 
-/** Merge per-page results into a single markdown document (page order preserved). */
-export function buildOutputMarkdown(
-  fileName: string,
-  model: string,
-  results: PageResult[],
-): string {
-  const headerModel = model.replace(/^models\//, '').trim();
-  const lines: string[] = [`# OCR: ${fileName}\n\n`, `_Model: ${headerModel}_\n\n`];
-  const failed = results.filter((r) => r.error);
-  const warned = results.filter((r) => r.warning && !r.error);
-
+/**
+ * Merge per-page OCR results into one markdown document, page order preserved.
+ * Faithful to the source: only the OCR'd text of each page, blank-line separated,
+ * with a minimal marker where a page failed so gaps aren't silent. Nothing else is
+ * injected — no title, model line, page headings, rules, or provenance notes.
+ */
+export function buildOutputMarkdown(results: PageResult[]): string {
+  const parts: string[] = [];
   for (const result of results) {
-    lines.push(`## Page ${result.pageNumber}\n\n`);
-    // Re-OCR'd pages (a manual retry) get a provenance note, using the per-result model.
-    const pageModel = result.model?.replace(/^models\//, '').trim();
-    if (pageModel && result.retried) {
-      lines.push(`_Re-OCR'd with ${pageModel}._\n\n`);
-    }
-    if (!result.error) {
-      // Soft anomaly note so the degenerate output is flagged inline, not just in the summary.
-      if (result.warning) lines.push(`_Possible OCR anomaly: ${result.warning}. Consider re-OCR._\n\n`);
-      lines.push(result.text || '[Blank page]');
-      lines.push('\n\n');
-    } else {
-      lines.push(`[OCR failed: ${result.error}]\n\n`);
-    }
-    lines.push('---\n\n');
+    if (result.error) parts.push(`[OCR failed: ${result.error}]`);
+    else if (result.text && result.text.trim()) parts.push(result.text);
   }
-
-  if (failed.length) {
-    lines.push('## Errors\n\n');
-    for (const result of failed) {
-      lines.push(`- Page ${result.pageNumber}: ${result.error}\n`);
-    }
-    lines.push('\n');
-  }
-
-  if (warned.length) {
-    lines.push('## Warnings\n\n');
-    for (const result of warned) {
-      lines.push(`- Page ${result.pageNumber}: ${result.warning}\n`);
-    }
-    lines.push('\n');
-  }
-
-  return lines.join('').replace(/\s+$/, '') + '\n';
+  return parts.join('\n\n').replace(/\s+$/, '') + '\n';
 }

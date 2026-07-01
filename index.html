@@ -13,11 +13,14 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'"
     />
-    <title>PDF → Markdown · client-side Gemini OCR</title>
+    <title>PDF → Markdown · super-parallel client-side Gemini OCR</title>
     <meta
       name="description"
-      content="Convert PDFs to Markdown in your browser with your own Google Gemini API key. No backend; nothing is uploaded to any server but Google's."
+      content="Split a PDF and OCR every page in parallel (up to 128 at once), straight from your browser to Gemini with your own API key. No backend; built for paid keys and power users."
     />
+    <!-- Sets the theme class on <html> before first paint (no flash). Relative
+         path because Vite builds with base: './'. Blocking by design. -->
+    <script src="./theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
