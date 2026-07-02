@@ -1185,8 +1185,11 @@ select.text-input {
   margin: 0;
 }
 
-/* Optically mirrors the gap above the footer (see .app-footer padding-top). */
-.footer-credit {
+/* Optically mirrors the gap above the footer (see .app-footer padding-top).
+   Scoped under .app-footer so it outranks the `.app-footer p { margin: 0 }`
+   reset above — as a bare class this margin silently lost that specificity
+   fight and the credit sat flush against the privacy note. */
+.app-footer .footer-credit {
   margin-top: 24px;
 }
 
