@@ -91,21 +91,25 @@ export function actualCost(model: string, inputTokens: number, outputTokens: num
 /**
  * A single cost: dollars when ≥ $1, otherwise cents (¢). Most per-job OCR costs are
  * a fraction of a cent to tens of cents, where "0.72¢" reads far better than "$0.0072".
+ * Below 0.1¢ a third decimal keeps nearby numbers distinct — at 2 decimals a one-page
+ * job's actual (0.014¢ → "0.01¢") and estimate low (0.016¢ → "0.02¢") round apart and
+ * look 2× apart next to an "in line with estimate" verdict.
  */
 export function formatCost(amount: number): string {
   if (amount >= 1) return `$${amount.toFixed(2)}`;
   const cents = amount * 100;
-  return `${cents.toFixed(cents >= 10 ? 0 : 2)}¢`;
+  return `${cents.toFixed(cents >= 10 ? 0 : cents >= 0.1 ? 2 : 3)}¢`;
 }
 
 /**
  * A cost range, in dollars when the high end is ≥ $1, otherwise in cents with adaptive
- * precision (2 decimals under 10¢, whole cents above) so the column stays readable.
+ * precision (whole cents from 10¢, 2 decimals under, 3 under 0.1¢ — matching formatCost
+ * so an actual cost never looks outside a range it's actually inside).
  */
 export function formatCostRange(low: number, high: number): string {
   if (high >= 1) return `$${low.toFixed(2)}–$${high.toFixed(2)}`;
   const lo = low * 100;
   const hi = high * 100;
-  const dp = hi >= 10 ? 0 : 2;
+  const dp = hi >= 10 ? 0 : hi >= 0.1 ? 2 : 3;
   return `${lo.toFixed(dp)}–${hi.toFixed(dp)}¢`;
 }
