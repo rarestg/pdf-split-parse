@@ -147,7 +147,8 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
             <span className="cost-amount unpriced">{tokenBreakdown}</span>
           </div>
           <p className="mixed-note">
-            On {entries.map(([m]) => m).join(', ')} — no price in the table to cost it.
+            On {entries.map(([m]) => m).join(', ')} — no price in the table for{' '}
+            {entries.length === 1 ? 'this model' : 'these models'}.
           </p>
         </div>
       )}
