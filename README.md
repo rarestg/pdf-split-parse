@@ -140,7 +140,7 @@ npm run deploy   # npm run build && wrangler deploy
 
 `public/_headers` (the CSP egress lock, including `frame-ancestors 'none'`) is honored by Workers Static Assets and applied to every static response; hashed `/assets/*` are cached immutably while `index.html` revalidates so deploys take effect at once. `base: './'` keeps the build origin-agnostic.
 
-**Zone settings** (Cloudflare dashboard, not in this repo): _Always Use HTTPS_ (http→https 301) and _HSTS_ are enabled for the zone; encryption mode is moot since there is no origin server.
+**Zone settings** (Cloudflare dashboard, not in this repo): _Always Use HTTPS_ (http→https 301) and _HSTS_ are enabled for the zone; encryption mode is moot since there is no origin server. A Single Redirect rule 301s `www` to the apex (`https://www.*` → `https://${1}`, query string preserved) so search signals consolidate on one host — redirect rules run before Workers, so the `www` custom-domain binding in `wrangler.jsonc` stays as an unreachable fallback.
 
 ## Develop And Verify
 
