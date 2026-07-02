@@ -82,7 +82,8 @@ body {
   position: relative;
   max-width: 880px;
   margin: 0 auto;
-  padding: 32px 20px 64px;
+  /* Equal breathing room above the title and below the footer. */
+  padding: 48px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -104,7 +105,7 @@ body {
    vertical height (top/right match the .app padding, aligned with the h1). */
 .theme-toggle {
   position: absolute;
-  top: 30px;
+  top: 46px;
   right: 20px;
   z-index: 1;
   display: inline-flex;
