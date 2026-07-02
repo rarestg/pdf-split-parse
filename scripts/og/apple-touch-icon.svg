@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Full-bleed variant of public/favicon.svg: iOS applies its own corner mask,
+     so a transparent rounded square would show dark corners. -->
+  <rect width="180" height="180" fill="#2563eb" />
+  <path d="M42 90h85M92 53l40 37-40 37" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
