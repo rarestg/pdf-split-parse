@@ -29,6 +29,7 @@ npm run build      # tsc --noEmit && vite build -> dist/
 npm run preview
 npm run typecheck
 npm run smoke      # core checks; live Gemini call if _local/.env has GEMINI_API_KEY
+npm run assets:og  # re-rasterize og.png + icon PNGs from their SVG sources
 npm run deploy     # build, then wrangler deploy to Cloudflare
 ```
 
@@ -83,6 +84,9 @@ The parsed `PDFDocument` is reused across the initial run and manual retries. Ex
 - `src/hooks/useLifetimeStats.ts` - localStorage aggregate spend/page/PDF tally.
 - `index.html` - CSP `<meta>` egress lock to self + Google's endpoint.
 - `public/_headers` - Cloudflare static-asset headers: CSP egress lock (incl. `frame-ancestors`) and immutable caching for hashed `/assets/*`.
+- `public/favicon.svg` - the site mark, and the source for the rasterized icons.
+- `public/og.png`, `public/favicon-96.png`, `public/apple-touch-icon.png` - committed share-card/icon rasters; regenerate with `npm run assets:og` (sources in `scripts/og/`).
+- `public/robots.txt`, `public/sitemap.xml` - crawler basics for pdfsplitparse.com.
 - `vite.config.ts` - Vite config with `base: './'`.
 - `.nvmrc` - Node 22 for local and CI builds.
 - `wrangler.jsonc` - Cloudflare Workers Static Assets config; binds the apex + `www` custom domains, deployed via Workers Builds.
