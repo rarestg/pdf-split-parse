@@ -93,6 +93,9 @@ body {
   font-size: 28px;
   line-height: 1.15;
   letter-spacing: -0.02em;
+  /* Reserve the width of the absolute-positioned theme toggle (same vertical zone),
+     so the title wraps on narrow screens instead of running underneath it. */
+  padding-right: 104px;
 }
 
 /* Tri-state segmented theme switch: Light / System / Dark. The active segment
@@ -542,9 +545,11 @@ body {
    from the centered Convert button. Fixed + clipped to the viewport (never adds
    scrollbars) and painted behind all content (z-index:-1, above the body-
    propagated page background) so it frames the page without washing over panel
-   text. App.tsx mounts it only while it plays (~1.8s) then unmounts, so it self-
+   text. App.tsx mounts it only while it plays (~2s) then unmounts, so it self-
    cleans and re-fires on the next run. Warm translucent gold reads as "sunrise"
-   on both the light and dark backgrounds without the harshness of a saturated red. */
+   on both the light and dark backgrounds without the harshness of a saturated red.
+   Three layers: main rays (::before), a fainter counter-rotating layer of chunkier
+   rays behind them (::after), and a thin ripple ring from the button (.sunburst-ripple). */
 .sunburst {
   position: fixed;
   inset: 0;
@@ -552,19 +557,46 @@ body {
   overflow: hidden;
   pointer-events: none;
   --ray: rgba(255, 176, 102, 0.18);
+  --ray2: rgba(255, 176, 102, 0.1);
+  --ripple: rgba(255, 176, 102, 0.55);
 }
 
 :root.dark .sunburst {
   --ray: rgba(255, 188, 120, 0.22);
+  --ray2: rgba(255, 188, 120, 0.13);
+  --ripple: rgba(255, 188, 120, 0.6);
 }
 
-.sunburst::before {
+/* Every 10th conversion: same choreography, brighter and snappier (mega). The
+   :root.dark selector keeps these vars winning over the dark base overrides. */
+.sunburst.mega,
+:root.dark .sunburst.mega {
+  --ray: rgba(255, 160, 80, 0.3);
+  --ray2: rgba(255, 150, 70, 0.18);
+  --ripple: rgba(255, 160, 80, 0.8);
+}
+
+.sunburst.mega::before,
+.sunburst.mega::after {
+  animation-duration: 1300ms;
+}
+
+.sunburst::before,
+.sunburst::after {
   content: '';
   position: absolute;
   left: var(--sun-x, 50vw);
   top: var(--sun-y, 50vh);
   width: var(--burst-size, 220vmax);
   height: var(--burst-size, 220vmax);
+  /* Clean hole over the button + feather the rays out before the screen edge. */
+  -webkit-mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.sunburst::before {
   /* 12 feathered ray wedges (ramp 4deg, hold 4deg, ramp 4deg, 18deg gap). */
   background: repeating-conic-gradient(
     from 0deg at 50% 50%,
@@ -574,13 +606,23 @@ body {
     transparent 12deg,
     transparent 30deg
   );
-  /* Clean hole over the button + feather the rays out before the screen edge. */
-  -webkit-mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
-  mask: radial-gradient(closest-side, transparent 5%, #000 15%, #000 55%, transparent 100%);
   transform: translate(-50%, -50%) scale(0.15) rotate(-8deg);
-  opacity: 0;
   animation: sunburst-rise 1800ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
-  will-change: transform, opacity;
+}
+
+/* 8 chunkier, fainter rays offset from the main layer, rising a beat later and
+   spinning the other way for depth and shimmer. */
+.sunburst::after {
+  background: repeating-conic-gradient(
+    from 15deg at 50% 50%,
+    transparent 0deg,
+    var(--ray2) 7deg,
+    var(--ray2) 14deg,
+    transparent 21deg,
+    transparent 45deg
+  );
+  transform: translate(-50%, -50%) scale(0.15) rotate(8deg);
+  animation: sunburst-rise-ccw 1800ms cubic-bezier(0.16, 0.7, 0.3, 1) 150ms forwards;
 }
 
 @keyframes sunburst-rise {
@@ -600,7 +642,69 @@ body {
   }
 }
 
-/* Reduced motion: no rays, spin, or scale — just a brief, faint warm glow. */
+@keyframes sunburst-rise-ccw {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.15) rotate(8deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.55) rotate(-95deg);
+  }
+}
+
+/* Thin ring expanding from the button center, tying the burst to the click. */
+.sunburst-ripple {
+  position: absolute;
+  left: var(--sun-x, 50vw);
+  top: var(--sun-y, 50vh);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ripple);
+  border-radius: 50%;
+  opacity: 0;
+  animation: ripple-out 650ms ease-out forwards;
+}
+
+@keyframes ripple-out {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 0.9;
+  }
+  100% {
+    width: 340px;
+    height: 340px;
+    opacity: 0;
+  }
+}
+
+/* Convert-press pop: a quick squash-and-overshoot while the burst fires. */
+.primary-btn.big.pop {
+  animation: btn-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes btn-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.93);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Reduced motion: no rays, spin, ripple, or pop — just a brief, faint warm glow. */
 @media (prefers-reduced-motion: reduce) {
   .sunburst::before {
     background: radial-gradient(closest-side, var(--ray), transparent 60%);
@@ -610,6 +714,15 @@ body {
     height: 60vmax;
     transform: translate(-50%, -50%) scale(1);
     animation: sunburst-glow 900ms ease-out forwards;
+  }
+
+  .sunburst::after,
+  .sunburst-ripple {
+    display: none;
+  }
+
+  .primary-btn.big.pop {
+    animation: none;
   }
 
   @keyframes sunburst-glow {
@@ -1062,15 +1175,17 @@ select.text-input {
   color: var(--muted);
   font-size: 13px;
   text-align: center;
-  padding-top: 8px;
+  /* 16px .app gap + 12px = 28px box gap above the privacy note: 4px more than the
+     24px below it, which evens the two gaps optically — the lower gap is padded by
+     text leading on both sides, the upper (button edge) only on one. */
+  padding-top: 12px;
 }
 
 .app-footer p {
   margin: 0;
 }
 
-/* Mirror the gap above the footer (the .app 16px flex gap + the footer's 8px
-   padding-top) between the privacy note and the credit sign-off. */
+/* Optically mirrors the gap above the footer (see .app-footer padding-top). */
 .footer-credit {
   margin-top: 24px;
 }

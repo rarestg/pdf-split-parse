@@ -85,8 +85,9 @@ export function App() {
   const isRunning = job.status === 'running';
 
   // One-shot "rising sun" burst behind the page, fired from the Convert button's
-  // center on run. Mounted only while it plays (~1.8s), then unmounted.
-  const [burst, setBurst] = useState<{ x: number; y: number; size: number; k: number } | null>(null);
+  // center on run. Mounted only while it plays (~2s), then unmounted. Every 10th
+  // conversion fires a brighter, snappier mega variant.
+  const [burst, setBurst] = useState<{ x: number; y: number; size: number; k: number; mega: boolean } | null>(null);
   const runBtnRef = useRef<HTMLButtonElement>(null);
   const sunburstRef = useRef<HTMLDivElement>(null);
   const burstTimer = useRef<number>();
@@ -211,9 +212,9 @@ export function App() {
     // by the layout effect, in case the re-run collapses the page below it).
     const m = measureBurst();
     if (m) {
-      setBurst({ ...m, k: ++burstId.current });
+      setBurst({ ...m, k: ++burstId.current, mega: (lifetime.stats.totalPdfs + 1) % 10 === 0 });
       clearTimeout(burstTimer.current);
-      burstTimer.current = window.setTimeout(() => setBurst(null), 1900);
+      burstTimer.current = window.setTimeout(() => setBurst(null), 2100);
     }
     await run(pdf.bytes, pdf.file.name, {
       apiKey: apiKey.trim(),
@@ -225,7 +226,7 @@ export function App() {
       startPage,
       endPage,
     });
-  }, [pdf, apiKey, settings, run, measureBurst]);
+  }, [pdf, apiKey, settings, run, measureBurst, lifetime.stats.totalPdfs]);
 
   const canRun = Boolean(apiKey.trim() && pdf && !isRunning);
   const selectedPages = pdf
@@ -253,7 +254,7 @@ export function App() {
         <div
           ref={sunburstRef}
           key={burst.k}
-          className="sunburst"
+          className={burst.mega ? 'sunburst mega' : 'sunburst'}
           aria-hidden="true"
           style={
             {
@@ -262,12 +263,14 @@ export function App() {
               '--burst-size': `${burst.size}px`,
             } as CSSProperties
           }
-        />
+        >
+          <div className="sunburst-ripple" />
+        </div>
       )}
       <ThemeToggle theme={theme} onTheme={setTheme} />
       <header className="app-header">
         <h1>
-          PDF <span className="arrow">→</span> Markdown
+          PDF <span className="arrow">→</span> Split <span className="arrow">→</span> Markdown
         </h1>
         <p className="tagline">
           Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser to
@@ -298,7 +301,13 @@ export function App() {
       />
 
       <div className="run-row">
-        <button ref={runBtnRef} type="button" className="primary-btn big" onClick={() => void handleRun()} disabled={!canRun}>
+        <button
+          ref={runBtnRef}
+          type="button"
+          className={`primary-btn big${burst ? ' pop' : ''}`}
+          onClick={() => void handleRun()}
+          disabled={!canRun}
+        >
           <SwapLabel options={['Convert to Markdown', 'Running…']}>
             {isRunning ? 'Running…' : 'Convert to Markdown'}
           </SwapLabel>
@@ -348,7 +357,7 @@ export function App() {
 
       {job.status === 'error' && <p className="error-text big-error">Error: {job.error}</p>}
 
-      {(settled || reOcr) &&job.results.length > 0 && (
+      {(settled || reOcr) && job.results.length > 0 && (
         <RetryPanel
           models={models}
           usedModel={job.model}
@@ -380,9 +389,9 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Gemini&rsquo;s GPUs. This site has no server, so your
-          documents and key never touch it; the only thing persisted between visits is an anonymous cost
-          tally (no documents, filenames, or keys).
+          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your
+          documents and key never touch it; the only thing persisted between visits is a cost tally stored
+          only on this device (no documents, filenames, or keys).
         </p>
         <p className="footer-credit">
           Made with love from the Capital One Lounge in Union Square

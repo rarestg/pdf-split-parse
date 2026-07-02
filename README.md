@@ -1,4 +1,4 @@
-# PDF → Markdown
+# PDF → Split → Markdown
 
 Super-parallel, fully client-side PDF-to-Markdown OCR powered by your own Google Gemini API key: no backend, with documents and key sent only from your browser directly to Google.
 

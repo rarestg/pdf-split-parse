@@ -102,7 +102,7 @@ export function Progress({
             <div className={`report-status ${status === 'running' ? '' : kind}`} aria-live="polite">
               {status === 'running' ? (
                 <span className="progress-status">
-                  {reOcr ? 'Re-OCR-ing' : 'OCR-ing…'} {completed}/{total}
+                  {reOcr ? 'Re-OCR' : 'Converting'} {completed}/{total}
                   {inFlight > 0 && <span aria-hidden="true"> · {inFlight} in flight</span>}
                   {retrying > 0 && (
                     <span className="stat-retry" aria-hidden="true"> · {retrying} retrying</span>
