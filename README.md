@@ -37,7 +37,7 @@ Requires Node 20+ from `package.json`. `.nvmrc` pins Node 22 for local and CI bu
 
 ## Bring Your Own Key
 
-Create a Gemini API key at <https://aistudio.google.com/apikey>, paste it into the app, then click **Test**. The key stays in memory unless **Remember in this browser tab** is checked, which stores it in `sessionStorage` for that tab.
+Create a Gemini API key at <https://aistudio.google.com/apikey>, paste it into the app, then click **Test**. The key stays in memory unless **Remember in this browser** is checked, which stores it in `localStorage` so it survives closing the tab or browser.
 
 For public deploys, restrict the key by HTTP referrer. Bring a paid key: free-tier keys are rate-limited (which throttles the whole point: parallelism) and their content may be human-reviewed by Google, while paid Gemini API content is not used to improve Google's products.
 
@@ -119,7 +119,7 @@ The core uses browser/Node globals such as `fetch`, `btoa`, `AbortController`, a
 
 The built app is static: no app server, upload endpoint, database, or proxy. A CSP egress lock holds browser connections to `'self'` and `https://generativelanguage.googleapis.com`, so PDF pages and the API key can only reach Google; it ships in the `index.html` `<meta>` and again in `public/_headers` (which also adds `frame-ancestors 'none'`).
 
-Persisted data is limited to optional tab-scoped key storage in `sessionStorage` and the localStorage lifetime aggregate tally. The tally stores no key, filename, or document content.
+Persisted data is limited to optional key storage in `localStorage` and the localStorage lifetime aggregate tally. The tally stores no key, filename, or document content.
 
 ## Deploy
 

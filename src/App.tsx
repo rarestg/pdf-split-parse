@@ -21,7 +21,7 @@ import {
   type GeminiModel,
 } from './core';
 
-const SESSION_KEY = 'pdf-split-parse:gemini-key';
+const API_KEY_STORAGE_KEY = 'pdf-split-parse:gemini-key';
 const THEME_KEY = 'pdf-split-parse:theme';
 
 // Shown (behind the lock) before a key is tested; replaced by the key's real
@@ -128,19 +128,21 @@ export function App() {
     if ((job.status === 'done' || job.status === 'cancelled') && job.markdown) setLastMarkdown(job.markdown);
   }, [job.status, job.markdown]);
 
-  // Restore a per-tab key on mount.
+  // Restore a remembered key on mount. Reads sessionStorage too so keys saved by
+  // the old per-tab storage carry over.
   useEffect(() => {
-    const stored = sessionStorage.getItem(SESSION_KEY);
+    const stored = localStorage.getItem(API_KEY_STORAGE_KEY) ?? sessionStorage.getItem(API_KEY_STORAGE_KEY);
     if (stored) {
       setApiKey(stored);
       setRememberKey(true);
     }
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
   }, []);
 
-  // Persist or clear the per-tab key whenever it (or the toggle) changes.
+  // Persist or clear the remembered key whenever it (or the toggle) changes.
   useEffect(() => {
-    if (rememberKey && apiKey) sessionStorage.setItem(SESSION_KEY, apiKey);
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (rememberKey && apiKey) localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+    else localStorage.removeItem(API_KEY_STORAGE_KEY);
   }, [rememberKey, apiKey]);
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
@@ -390,8 +392,8 @@ export function App() {
       <footer className="app-footer">
         <p>
           Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your
-          documents and key never touch it; the only thing persisted between visits is a cost tally stored
-          only on this device (no documents, filenames, or keys).
+          documents and key never touch it; all that persists between visits is a cost tally (no documents
+          or filenames) and, if you opt in, your key &mdash; both stored only on this device.
         </p>
         <p className="footer-credit">
           Made with love from the Capital One Lounge in Union Square

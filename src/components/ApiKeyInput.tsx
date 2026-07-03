@@ -141,7 +141,7 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
           checked={remember}
           onChange={(event) => onRemember(event.target.checked)}
         />
-        Remember in this browser tab
+        Remember in this browser
       </label>
       <ul className="key-notes">
         <li>
