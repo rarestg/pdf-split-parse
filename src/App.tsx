@@ -7,7 +7,7 @@ import { Progress } from './components/Progress';
 import { ResultView } from './components/ResultView';
 import { RetryPanel } from './components/RetryPanel';
 import { SwapLabel } from './components/SwapLabel';
-import { ThemeToggle, type Theme } from './components/ThemeToggle';
+import { ThemeToggle, type ColorScheme } from './components/ThemeToggle';
 import { useLifetimeStats } from './hooks/useLifetimeStats';
 import { useOcrJob } from './hooks/useOcrJob';
 import {
@@ -23,6 +23,7 @@ import {
 
 const API_KEY_STORAGE_KEY = 'pdf-split-parse:gemini-key';
 const THEME_KEY = 'pdf-split-parse:theme';
+type Theme = ColorScheme | 'system';
 
 // Shown (behind the lock) before a key is tested; replaced by the key's real
 // models after "Test". Role tags are derived from the id in Controls.
@@ -57,17 +58,25 @@ export function App() {
     }
     return 'system';
   });
+  const [colorScheme, setColorScheme] = useState<ColorScheme>(() =>
+    theme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : theme,
+  );
 
   // Apply the theme to <html> (matching the pre-paint script), persist the choice,
   // and follow OS changes only while on "system". Key absent = system.
   useEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = (dark: boolean) => {
-      root.classList.toggle('dark', dark);
-      root.style.colorScheme = dark ? 'dark' : 'light';
+    const apply = (nextScheme: ColorScheme) => {
+      root.classList.toggle('dark', nextScheme === 'dark');
+      root.style.colorScheme = nextScheme;
+      setColorScheme(nextScheme);
     };
-    apply(theme === 'dark' || (theme === 'system' && media.matches));
+    apply(theme === 'system' ? (media.matches ? 'dark' : 'light') : theme);
     try {
       if (theme === 'system') localStorage.removeItem(THEME_KEY);
       else localStorage.setItem(THEME_KEY, theme);
@@ -75,7 +84,7 @@ export function App() {
       /* storage blocked — the theme still applies for this session */
     }
     if (theme !== 'system') return;
-    const onChange = (event: MediaQueryListEvent) => apply(event.matches);
+    const onChange = (event: MediaQueryListEvent) => apply(event.matches ? 'dark' : 'light');
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);
   }, [theme]);
@@ -269,7 +278,7 @@ export function App() {
           <div className="sunburst-ripple" />
         </div>
       )}
-      <ThemeToggle theme={theme} onTheme={setTheme} />
+      <ThemeToggle colorScheme={colorScheme} onChange={setTheme} />
       <header className="app-header">
         <h1>
           PDF <span className="arrow">→</span> Split <span className="arrow">→</span> Markdown
@@ -396,8 +405,7 @@ export function App() {
           or filenames) and, if you opt in, your key &mdash; both stored only on this device.
         </p>
         <p className="footer-credit">
-          Made with love from the Capital One Lounge in Union Square
-          <br />© Rareș Gosman ·{' '}
+          Built with care by Rareș Gosman ·{' '}
           <a href="https://rares.blog" target="_blank" rel="noreferrer">
             rares.blog
           </a>

@@ -96,11 +96,9 @@ body {
   letter-spacing: -0.02em;
   /* Reserve the width of the absolute-positioned theme toggle (same vertical zone),
      so the title wraps on narrow screens instead of running underneath it. */
-  padding-right: 104px;
+  padding-right: 52px;
 }
 
-/* Tri-state segmented theme switch: Light / System / Dark. The active segment
-   lifts to the panel color; the others sit on the sunken track. */
 /* Icon-only theme switch, pinned to the top-right of the page so it adds no
    vertical height (top/right match the .app padding, aligned with the h1). */
 .theme-toggle {
@@ -109,37 +107,30 @@ body {
   right: 20px;
   z-index: 1;
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--sunken);
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--panel);
+  color: var(--muted);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
 }
 
-.theme-opt {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 6px;
-}
-
-.theme-opt:hover {
+.theme-toggle:hover {
   color: var(--text);
 }
 
-/* Active segment: accent text + an inset accent ring (a color-independent shape
-   cue, so the selected mode reads in grayscale) plus a small lift. */
-.theme-opt.active {
-  background: var(--panel);
-  color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent-border), 0 1px 2px var(--shadow);
-}
-
-.theme-opt svg {
+.theme-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
   flex: none;
+  background: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
 }
 
 .app-header .arrow {
