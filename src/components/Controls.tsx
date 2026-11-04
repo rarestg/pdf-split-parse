@@ -77,7 +77,7 @@ interface Props {
 export function Controls({ settings, onChange, pageCount, selectedPages, disabled, models, keyTested }: Props) {
   const [showPrompt, setShowPrompt] = useState(false);
   const maxPage = pageCount || undefined;
-  const needsTest = !keyTested && !disabled; // locked because untested, not because a job is running
+  const needsTest = !keyTested; // stays put during a run, so Convert doesn't shift the page
 
   // Midpoint cost estimate for the selected model at a given image detail, so the
   // cost impact of low/medium/high is visible right on the options.
@@ -161,7 +161,7 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
         />
 
         <div className="field">
-          <label className="field-label">Pages</label>
+          <span className="field-label">Pages</span>
           <div className="key-row">
             <input
               type="number"
@@ -192,8 +192,16 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
       </div>
 
       <div className="prompt-head">
-        <button type="button" className="link-btn" onClick={() => setShowPrompt((value) => !value)}>
-          {showPrompt ? '▾' : '▸'} Advanced: OCR prompt
+        <button
+          type="button"
+          className="link-btn disclosure"
+          aria-expanded={showPrompt}
+          onClick={() => setShowPrompt((value) => !value)}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Advanced: OCR prompt
         </button>
         {showPrompt && settings.prompt.trim() !== DEFAULT_PROMPT.trim() && (
           <button type="button" className="link-btn" onClick={() => onChange({ prompt: DEFAULT_PROMPT })}>
