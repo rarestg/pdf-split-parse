@@ -207,7 +207,25 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         // Keep whatever pages finished before a cancel or fatal error so paid-for work isn't lost.
         const cancelled = controller.signal.aborted;
         const message = error instanceof Error ? error.message : String(error);
-        const ordered = [...collected].sort((a, b) => a.pageNumber - b.pageNumber);
+        // After a fatal error, mark pages that never finished, so the document shows the gap and Re-OCR
+        // offers them. Not after a cancel (the user chose to stop) or if nothing finished (just show the error).
+        const finished = new Set(collected.map((r) => r.pageNumber));
+        const requested =
+          options.pages ?? Array.from({ length: plannedTotal }, (_, i) => (options.startPage ?? 1) + i);
+        const notRun: PageResult[] =
+          cancelled || collected.length === 0
+            ? []
+            : requested
+                .filter((pageNumber) => !finished.has(pageNumber))
+                .map((pageNumber) => ({
+                  pageNumber,
+                  text: '',
+                  elapsedMs: 0,
+                  attempts: 0,
+                  model,
+                  error: 'Not processed because the run stopped.',
+                }));
+        const ordered = [...collected, ...notRun].sort((a, b) => a.pageNumber - b.pageNumber);
         const markdown = ordered.length ? buildOutputMarkdown(ordered) : '';
         setState((prev) => ({
           ...prev,
@@ -220,7 +238,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
           retrying: 0,
           elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
         }));
-        fireComplete(false, ordered.length, invocationCost(model, ordered));
+        fireComplete(false, collected.length, invocationCost(model, collected));
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }
@@ -230,7 +248,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
 
   /** Re-OCR a failed subset of pages (optionally on a different model / image detail) and merge the results in. */
   const retry = useCallback(
-    async (pageNumbers: number[], overrides: { model: string; mediaResolution: MediaResolution }) => {
+    async (pageNumbers: number[], overrides: { apiKey: string; model: string; mediaResolution: MediaResolution }) => {
       const ctx = ctxRef.current;
       if (!ctx || pageNumbers.length === 0) return;
       abortRef.current?.abort();
@@ -294,6 +312,7 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
       try {
         const { results } = await runOcrPipeline(ctx.pdfBytes, ctx.fileName, {
           ...ctx.options,
+          apiKey: overrides.apiKey,
           model: retryModel,
           mediaResolution: overrides.mediaResolution,
           pages: pageNumbers,

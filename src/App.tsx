@@ -379,7 +379,9 @@ export function App() {
           pageCount={pdf?.pageCount ?? job.total}
           disabled={isRunning}
           error={job.actionError}
-          onRetry={(pages, model, detail) => void retry(pages, { model, mediaResolution: detail })}
+          onRetry={(pages, model, detail) =>
+            void retry(pages, { apiKey: apiKey.trim(), model, mediaResolution: detail })
+          }
         />
       )}
 
