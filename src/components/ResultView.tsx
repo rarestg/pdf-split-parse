@@ -41,6 +41,7 @@ function ResultViewImpl({ markdown, fileName }: Props) {
           <button
             type="button"
             className={tab === 'preview' ? 'tab active' : 'tab'}
+            aria-pressed={tab === 'preview'}
             onClick={() => setTab('preview')}
           >
             Preview
@@ -48,6 +49,7 @@ function ResultViewImpl({ markdown, fileName }: Props) {
           <button
             type="button"
             className={tab === 'source' ? 'tab active' : 'tab'}
+            aria-pressed={tab === 'source'}
             onClick={() => setTab('source')}
           >
             Markdown

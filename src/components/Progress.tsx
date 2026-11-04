@@ -136,6 +136,7 @@ export function Progress({
       <div
         className="bar"
         role="progressbar"
+        aria-label="Conversion progress"
         aria-valuenow={completed}
         aria-valuemin={0}
         aria-valuemax={total}

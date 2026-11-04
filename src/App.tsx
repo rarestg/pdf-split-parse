@@ -93,7 +93,7 @@ export function App() {
   const { state: job, run, retry, cancel, reset } = useOcrJob(lifetime.record);
   const isRunning = job.status === 'running';
 
-  // One-shot "rising sun" burst behind the page, fired from the Convert button's
+  // One-shot sunburst behind the page, fired from the Convert button's
   // center on run. Mounted only while it plays (~2s), then unmounted. Every 10th
   // conversion fires a brighter, snappier mega variant.
   const [burst, setBurst] = useState<{ x: number; y: number; size: number; k: number; mega: boolean } | null>(null);
@@ -204,14 +204,7 @@ export function App() {
   }, [apiKey, updateSettings]);
 
   const handleRun = useCallback(async () => {
-    if (!pdf) {
-      setFormError('Choose a PDF first.');
-      return;
-    }
-    if (!apiKey.trim()) {
-      setFormError('Enter your Gemini API key.');
-      return;
-    }
+    if (!pdf || !apiKey.trim()) return; // the disabled button and runBlocker cover these
     const startPage = Math.max(1, settings.startPage);
     const endPage = Math.min(settings.endPage, pdf.pageCount);
     if (endPage < startPage) {
@@ -219,7 +212,7 @@ export function App() {
       return;
     }
     setFormError(null);
-    // Fire the rising-sun burst from the button's center (re-anchored post-commit
+    // Fire the sunburst from the button's center (re-anchored post-commit
     // by the layout effect, in case the re-run collapses the page below it).
     const m = measureBurst();
     if (m) {
@@ -240,6 +233,8 @@ export function App() {
   }, [pdf, apiKey, settings, run, measureBurst, lifetime.stats.totalPdfs]);
 
   const canRun = Boolean(apiKey.trim() && pdf && !isRunning);
+  // Says why Convert is disabled, in page order (the key panel comes first).
+  const runBlocker = !apiKey.trim() ? 'Enter your Gemini API key.' : !pdf ? 'Choose a PDF first.' : null;
   const selectedPages = pdf
     ? Math.max(0, Math.min(settings.endPage, pdf.pageCount) - Math.max(1, settings.startPage) + 1)
     : 0;
@@ -323,6 +318,7 @@ export function App() {
             {isRunning ? 'Running…' : 'Convert to Markdown'}
           </SwapLabel>
         </button>
+        {runBlocker && <span className="hint">{runBlocker}</span>}
         {formError && <span className="error-text">{formError}</span>}
       </div>
 
@@ -405,7 +401,7 @@ export function App() {
           or filenames) and, if you opt in, your key &mdash; both stored only on this device.
         </p>
         <p className="footer-credit">
-          Built with care by Rareș Gosman ·{' '}
+          Built with care by{' '}
           <a href="https://rares.blog" target="_blank" rel="noreferrer">
             rares.blog
           </a>
