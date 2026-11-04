@@ -38,6 +38,14 @@ export class GeminiFatalError extends Error {
   }
 }
 
+const INVALID_KEY_MESSAGE =
+  'Invalid or unauthorized API key. Create a new key at aistudio.google.com/apikey and check it has Gemini API access.';
+
+/** Catches pasted text early: fetch throws a cryptic error for characters a header can't carry. */
+function assertPlausibleKey(apiKey: string): void {
+  if (!/^[\x21-\x7E]+$/.test(apiKey)) throw new GeminiFatalError(INVALID_KEY_MESSAGE);
+}
+
 /** A deterministic, page-level failure that should NOT be retried (block, truncation). */
 class PageError extends Error {
   constructor(message: string) {
@@ -112,6 +120,7 @@ export function pickSmarterModel(models: GeminiModel[], current: string): string
 
 /** Validate a key and find models available for this key without running inference. */
 export async function checkApiKey(apiKey: string, signal?: AbortSignal): Promise<GeminiModel[]> {
+  assertPlausibleKey(apiKey);
   let available: GeminiModel[];
   try {
     available = await listModels(apiKey, signal);
@@ -165,6 +174,7 @@ export interface OcrPageParams {
  * - A user abort via `signal` propagates.
  */
 export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<PageResult> {
+  assertPlausibleKey(params.apiKey);
   const model = normalizeModel(params.model);
   const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`;
 
@@ -375,7 +385,7 @@ function fatalMessage(error: unknown): string {
       error.apiStatus === 'PERMISSION_DENIED' ||
       /api[_ ]?key|api_key_invalid/i.test(error.message)
     ) {
-      return 'Invalid or unauthorized API key. Create a new key at aistudio.google.com/apikey and check it has Gemini API access.';
+      return INVALID_KEY_MESSAGE;
     }
     if (error.status === 404 || /\bmodel\b/i.test(error.message)) {
       return `Model not available for this key: ${error.message}. Use "Test" to pick a supported model.`;
