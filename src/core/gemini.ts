@@ -219,7 +219,7 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
         debugLog(
           `${tag} ✗ gave up after ${tries} of back-off (${((performance.now() - pageStartedAt) / 1000).toFixed(1)}s): ${lastError}`,
         );
-        const note = `${lastError} — still failing after ${tries} of back-off; wait and retry, or lower "Parallel pages".`;
+        const note = `${lastError} — still failing after ${tries} of back-off; wait and retry, or lower "Pages at once".`;
         return failed(page.pageNumber, attempt, performance.now() - startedAt, note, model);
       }
       const ms = backoffMs(error, attempt);

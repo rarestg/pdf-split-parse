@@ -130,7 +130,7 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
       <div className="grid">
         <NumberField
           id="concurrency"
-          label="Parallel pages"
+          label="Pages at once"
           min={1}
           max={128}
           value={settings.concurrency}

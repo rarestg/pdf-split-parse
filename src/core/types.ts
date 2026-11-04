@@ -34,7 +34,7 @@ export interface PageResult {
 }
 
 export interface OcrOptions {
-  /** Google Gemini API key (BYO — stays in the browser). */
+  /** Google Gemini API key (BYO — sent only to Gemini). */
   apiKey: string;
   model?: string;
   prompt?: string;

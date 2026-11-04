@@ -188,7 +188,7 @@ export function App() {
         setModels([]);
         setTestState({
           status: 'error',
-          message: 'Key valid, but none of the supported models are available to it.',
+          message: 'Key valid, but this key can’t access any of the supported models.',
         });
         return;
       }
@@ -197,7 +197,7 @@ export function App() {
       if (selectedModel) updateSettings({ model: selectedModel });
       setTestState({
         status: 'ok',
-        message: `Key valid · ${found.length} models available`,
+        message: `Key looks good! ${found.length} model${found.length === 1 ? '' : 's'} ready`,
       });
     } catch (error) {
       setTestState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
@@ -209,7 +209,7 @@ export function App() {
     const startPage = Math.max(1, settings.startPage);
     const endPage = Math.min(settings.endPage, pdf.pageCount);
     if (endPage < startPage) {
-      setFormError('End page must be greater than or equal to start page.');
+      setFormError('End page can’t be before the start page.');
       return;
     }
     setFormError(null);
@@ -325,7 +325,7 @@ export function App() {
       {largeJob && !isRunning && (
         <p className="hint">
           Large job: {selectedPages} pages, one Gemini request each. Very large PDFs use significant browser memory. If
-          the tab struggles, lower the parallel-pages count or split the range.
+          the tab struggles, lower the Pages at once setting or split the range.
         </p>
       )}
 
@@ -355,7 +355,7 @@ export function App() {
           )}
           {job.lastRetry && (
             <p className="hint last-retry">
-              Last retry: page{job.lastRetry.pages.length === 1 ? '' : 's'} {job.lastRetry.pages.join(', ')} on{' '}
+              Last redo: page{job.lastRetry.pages.length === 1 ? '' : 's'} {job.lastRetry.pages.join(', ')} on{' '}
               {job.lastRetry.model} ({job.lastRetry.mediaResolution}) — {lastRetryOutcome}.
             </p>
           )}
@@ -387,7 +387,7 @@ export function App() {
 
       {(lifetime.stats.totalPdfs > 0 || lifetime.stats.totalCostUsd > 0) && (
         <p className="hint lifetime">
-          Lifetime on this device: <strong>{formatCost(lifetime.stats.totalCostUsd)}</strong> across{' '}
+          So far on this device: <strong>{formatCost(lifetime.stats.totalCostUsd)}</strong> across{' '}
           {lifetime.stats.totalPages.toLocaleString()} page{lifetime.stats.totalPages === 1 ? '' : 's'} ·{' '}
           {lifetime.stats.totalPdfs} conversion{lifetime.stats.totalPdfs === 1 ? '' : 's'}{' '}
           <button type="button" className="reset-pill" onClick={lifetime.reset}>
@@ -398,9 +398,9 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your documents
-          and key never touch it; all that persists between visits is a cost tally (no documents or filenames) and, if
-          you opt in, your key &mdash; both stored only on this device.
+          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no backend, so your documents
+          and key never reach us. All that persists between visits is your theme choice, a cost tally (no documents or
+          filenames) and, if you opt in, your key &mdash; all stored only on this device.
         </p>
         <p className="footer-credit">
           Built with care by{' '}

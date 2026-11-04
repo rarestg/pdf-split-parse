@@ -146,7 +146,7 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
       <p className="hint model-table-note">
         {pages > 0
           ? `Estimate for ${pages} selected page${pages === 1 ? '' : 's'} at ${mediaResolution} detail`
-          : 'Load a PDF to estimate cost'}
+          : 'Load a PDF to see what it’ll cost'}
         <span className="price-col"> · prices per 1M tokens</span>
         {' · verify on '}
         <a href={PRICING_URL} target="_blank" rel="noreferrer">

@@ -5,5 +5,5 @@ const REPEAT_RUN_THRESHOLD = 200;
 export function detectRepetition(text: string, threshold = REPEAT_RUN_THRESHOLD): string | undefined {
   const match = new RegExp(`([^\\s])\\1{${threshold - 1},}`).exec(text);
   if (!match) return undefined;
-  return `repeated-character run (${match[0].length.toLocaleString()}× "${match[1]}")`;
+  return `repeated character (${match[0].length.toLocaleString()}× "${match[1]}")`;
 }
