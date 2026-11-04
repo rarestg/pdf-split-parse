@@ -81,7 +81,7 @@ export function Progress({
   const base = reOcr ? retryElapsedMs : elapsedMs;
   const elapsed = status === 'running' && startedAt != null ? base + Math.max(0, now - startedAt) : elapsedMs;
   const seconds = `${(elapsed / 1000).toFixed(1)}s`;
-  const retryNote = retryElapsedMs > 0 ? ` (+${(retryElapsedMs / 1000).toFixed(1)}s re-OCR)` : '';
+  const retryNote = retryElapsedMs > 0 ? ` (+${(retryElapsedMs / 1000).toFixed(1)}s redo)` : '';
   const suspect = results.filter((r) => r.warning && !r.error).length;
   // Error and suspect rows only — successes are summarized by the count + bar, so the card
   // doesn't grow a line per page on a large document. Stale during a re-OCR, so hidden then.
@@ -109,7 +109,7 @@ export function Progress({
             <div className={`report-status ${status === 'running' ? '' : kind}`} aria-live="polite">
               {status === 'running' ? (
                 <span className="progress-status">
-                  {reOcr ? 'Re-OCR' : 'Converting'} {completed}/{total}
+                  {reOcr ? 'Redoing' : 'Converting'} {completed}/{total}
                   {inFlight > 0 && <span aria-hidden="true"> · {inFlight} in flight</span>}
                   {retrying > 0 && (
                     <span className="stat-retry" aria-hidden="true">

@@ -59,7 +59,7 @@ export function RetryPanel({
   if (!expanded) {
     return (
       <button type="button" className="link-btn retry-expand" disabled={disabled} onClick={() => setUserExpanded(true)}>
-        Re-OCR specific pages…
+        Redo specific pages…
       </button>
     );
   }
@@ -73,16 +73,16 @@ export function RetryPanel({
   let rest: string;
   if (failed > 0 && suspect > 0) {
     lead = `${failed} failed, ${suspect} suspect`;
-    rest = ' — re-OCR them, or any pages you choose, with a different model or image detail.';
+    rest = ' — redo them, or any pages you choose, with a different model or image detail.';
   } else if (failed > 0) {
     lead = `${failed} page${failed === 1 ? '' : 's'} failed`;
-    rest = ` (page${failed === 1 ? '' : 's'} ${failedPages.join(', ')}). Re-OCR them, or any pages you choose, with a different model or image detail.`;
+    rest = ` (page${failed === 1 ? '' : 's'} ${failedPages.join(', ')}). Redo them, or any pages you choose, with a different model or image detail.`;
   } else if (suspect > 0) {
     lead = `${suspect} page${suspect === 1 ? '' : 's'} look${suspect === 1 ? 's' : ''} suspect`;
-    rest = ` (page${suspect === 1 ? '' : 's'} ${suspectPages.join(', ')}). Re-OCR them, or any pages you choose, with a different model or image detail.`;
+    rest = ` (page${suspect === 1 ? '' : 's'} ${suspectPages.join(', ')}). Redo them, or any pages you choose, with a different model or image detail.`;
   } else {
-    lead = 'Re-OCR specific pages';
-    rest = ' — redo individual pages with a different model or image detail.';
+    lead = 'Redo specific pages';
+    rest = ' with a different model or image detail.';
   }
 
   const n = parsed.pages.length;
@@ -90,7 +90,7 @@ export function RetryPanel({
     n > PREVIEW_CAP
       ? `${parsed.pages.slice(0, PREVIEW_CAP).join(', ')}… (+${n - PREVIEW_CAP} more)`
       : parsed.pages.join(', ');
-  const preview = n === 0 ? 'Nothing to re-OCR' : `Will re-OCR ${n} page${n === 1 ? '' : 's'}: ${list}`;
+  const preview = n === 0 ? 'No pages selected' : `Will redo ${n} page${n === 1 ? '' : 's'}: ${list}`;
   const showReset = flaggedPages.length > 0 && spec !== flaggedSpec;
 
   return (
@@ -102,7 +102,7 @@ export function RetryPanel({
 
       <div className="retry-field">
         <label className="field-label" htmlFor="retry-spec">
-          Pages to re-OCR
+          Pages to redo
         </label>
         <input
           id="retry-spec"
@@ -124,7 +124,7 @@ export function RetryPanel({
 
       <div className="retry-controls">
         <label className="field">
-          <span className="field-label">Retry model</span>
+          <span className="field-label">Redo model</span>
           <select
             className="text-input"
             value={model}
@@ -159,14 +159,14 @@ export function RetryPanel({
           disabled={n === 0 || disabled}
           onClick={() => onRetry(parsed.pages, model, detail)}
         >
-          Re-OCR {n} page{n === 1 ? '' : 's'}
+          Redo {n} page{n === 1 ? '' : 's'}
         </button>
       </div>
 
       {error && <p className="error-text">{error}</p>}
       <p className="hint retry-hint">
-        Rate-limit (429) and overload (503) errors retry on their own; timeouts and dense (MAX_TOKENS) pages are left
-        here for you to retry.
+        Rate-limit and overload errors retry on their own. Timeouts and pages that were too dense for the model are here
+        for you to redo.
       </p>
     </section>
   );

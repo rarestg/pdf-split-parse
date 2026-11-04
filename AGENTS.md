@@ -9,7 +9,7 @@ This is a static, client-side PDF-to-Markdown OCR app. See `README.md` for the d
 - Put OCR behavior in `src/core/`; keep React state and presentation in `src/hooks/` and `src/components/`. `src/core/` must also run in Node, because `npm test` and `npm run smoke` import it there; `npm run build` fails if it uses browser-only globals.
 - Every change to `main` goes through a PR, because pushing to `main` deploys to production through Cloudflare Workers Builds. Pull requests get preview URLs.
 - Send the Gemini key in the `x-goog-api-key` header, never in a URL. A URL saves about 140 ms on the first Test click, which doesn't justify the risk of the key being logged.
-- Only 429 and 503 responses retry automatically. Other failures go to the user for a manual Re-OCR, because automatic retries cost money and rarely help.
+- Only 429 and 503 responses retry automatically. Other failures go to the user for a manual redo, because automatic retries cost money and rarely help.
 - To add a model, add its entry to `src/core/models.ts`, check its price on Google's pricing page, and run one real OCR call. Thinking settings vary by model: `gemini-3.8-flash` rejects `minimal`, and `gemini-3.5-flash-lite` rejects `thinkingBudget`.
 - `reference/` holds the original Python CLI. Active development is in the TypeScript app, but `reference/` may be changed.
 - Use `_local/` for scratch PDFs, local keys, and throwaway env files; it is gitignored.
