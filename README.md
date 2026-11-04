@@ -93,8 +93,11 @@ The parsed `PDFDocument` is reused across the initial run and manual retries. Ex
 - `public/robots.txt`, `public/sitemap.xml` - crawler basics for pdfsplitparse.com.
 - `vite.config.ts` - Vite config with `base: './'`.
 - `.nvmrc` - Node 22 for local and CI builds.
+- `.github/` - CI workflow and Dependabot config.
+- `biome.json` - Biome lint and format rules.
 - `wrangler.jsonc` - Cloudflare Workers Static Assets config; binds the apex + `www` custom domains, deployed via Workers Builds.
 - `scripts/smoke.ts` - Node smoke test for the core.
+- `tests/` - offline checks of how page failures are handled.
 - `reference/` - original Python CLI porting reference.
 - `_local/` - gitignored scratch for PDFs, keys, and `.env`.
 
@@ -123,7 +126,7 @@ The core uses browser/Node globals such as `fetch`, `btoa`, `AbortController`, a
 
 The built app is static: no app server, upload endpoint, database, or proxy. A CSP egress lock holds browser connections to `'self'` and `https://generativelanguage.googleapis.com`, so PDF pages and the API key can only reach Google; it ships in the `index.html` `<meta>` and again in `public/_headers` (which also adds `frame-ancestors 'none'`).
 
-Persisted data is limited to optional key storage in `localStorage` and the localStorage lifetime aggregate tally. The tally stores no key, filename, or document content.
+The app stores three things in `localStorage`: your theme choice, a lifetime cost tally, and your key if you check **Remember in this browser**. The tally holds no key, filename, or document content.
 
 ## Deploy
 
@@ -148,11 +151,8 @@ npm run deploy   # npm run build && wrangler deploy
 
 ## Develop And Verify
 
-- Put OCR behavior in `src/core/`; keep React state and presentation in `src/hooks/` and `src/components/`.
-- Use `_local/` for scratch PDFs, local keys, and throwaway env files; it is gitignored.
+- Follow [`AGENTS.md`](AGENTS.md) for project boundaries and verification steps.
 - Enable request lifecycle logs with `localStorage.setItem('pdf-debug', '1')`, then reload. Disable with `localStorage.removeItem('pdf-debug')`.
-- Verify changes with `npm run typecheck` and `npm run smoke`; run `npm run build` before deploying or after Vite/CSP changes.
-- Egress is CSP-locked in two files — keep `connect-src` in `index.html` and `public/_headers` in sync.
 
 ## License
 

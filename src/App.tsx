@@ -396,9 +396,9 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your documents
-          and key never touch it; all that persists between visits is a cost tally (no documents or filenames) and, if
-          you opt in, your key &mdash; both stored only on this device.
+          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no backend, so your documents
+          and key never reach us. All that persists between visits is your theme choice, a cost tally (no documents or
+          filenames) and, if you opt in, your key &mdash; all stored only on this device.
         </p>
         <p className="footer-credit">
           Built with care by{' '}

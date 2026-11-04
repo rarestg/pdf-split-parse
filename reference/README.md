@@ -2,7 +2,7 @@
 
 The original implementation: page-parallel Gemini OCR for large PDFs, kept here
 for local use. The actively developed tool is the TypeScript web app at the repo
-root; this directory is a faithful snapshot you can still run with `python3`.
+root; this CLI still runs with `python3`.
 
 ## Setup
 
