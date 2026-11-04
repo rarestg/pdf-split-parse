@@ -8,6 +8,7 @@ import { ResultView } from './components/ResultView';
 import { RetryPanel } from './components/RetryPanel';
 import { SwapLabel } from './components/SwapLabel';
 import { ThemeToggle, type ColorScheme } from './components/ThemeToggle';
+import { withLoadingIndicator } from './components/withLoadingIndicator';
 import { useLifetimeStats } from './hooks/useLifetimeStats';
 import { useOcrJob } from './hooks/useOcrJob';
 import {
@@ -154,8 +155,10 @@ export function App() {
     setSettings((prev) => ({ ...prev, ...partial }));
   }, []);
 
+  const latestTest = useRef(0); // only the newest Test, for the current key, may change the page
   const handleApiKey = useCallback(
     (value: string) => {
+      latestTest.current++;
       setApiKey(value);
       setTestState({ status: 'idle' }); // a changed key needs a fresh test
       setModels(FALLBACK_MODELS); // the new key's models are unknown until Test
@@ -181,9 +184,15 @@ export function App() {
       setTestState({ status: 'error', message: 'Enter your API key first.' });
       return;
     }
-    setTestState({ status: 'testing' });
+    const test = ++latestTest.current;
     try {
-      const found = await checkApiKey(key);
+      const found = await withLoadingIndicator(
+        () => checkApiKey(key),
+        (shown) => {
+          if (shown && test === latestTest.current) setTestState({ status: 'testing' });
+        },
+      );
+      if (test !== latestTest.current) return;
       if (found.length === 0) {
         setModels([]);
         setTestState({
@@ -200,6 +209,7 @@ export function App() {
         message: `Key looks good! ${found.length} model${found.length === 1 ? '' : 's'} ready`,
       });
     } catch (error) {
+      if (test !== latestTest.current) return;
       setTestState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
     }
   }, [apiKey, updateSettings]);

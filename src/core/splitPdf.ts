@@ -18,8 +18,8 @@ const CHUNK_FAILED_MESSAGE = 'This page couldn’t finish loading. Please reload
 export async function loadPdf(pdfBytes: Uint8Array): Promise<PDFDocument> {
   // Loaded on demand because pdf-lib is over half of the app's JavaScript. Outside the try below,
   // so a failed download isn't reported as a damaged PDF.
-  const { PDFDocument } = await import('pdf-lib').catch(() => {
-    throw new Error(CHUNK_FAILED_MESSAGE);
+  const { PDFDocument } = await import('pdf-lib').catch((cause) => {
+    throw new Error(CHUNK_FAILED_MESSAGE, { cause });
   });
   // pdf-lib can't decrypt and is a strict parser, so its raw failures (e.g.
   // "Expected instance of PDFDict, but got undefined") are meaningless to users.

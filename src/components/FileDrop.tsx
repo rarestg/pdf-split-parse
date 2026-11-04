@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { getPageCount } from '../core';
+import { withLoadingIndicator } from './withLoadingIndicator';
 
 export interface LoadedPdf {
   file: File;
@@ -18,44 +19,55 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loading = useRef(false);
 
-  const ingest = useCallback(
-    async (file: File) => {
+  const load = useCallback(
+    async (getFile: () => Promise<File>) => {
+      // The sample button only looks disabled once the indicator shows, so a double click lands here.
+      if (loading.current) return;
+      loading.current = true;
       setError(null);
-      if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-        setError('Please choose a PDF file.');
-        return;
-      }
-      setBusy(true);
       try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const pageCount = await getPageCount(bytes);
-        onPdf({ file, bytes, pageCount });
+        const pdf = await withLoadingIndicator(async () => {
+          const file = await getFile();
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          return { file, bytes, pageCount: await getPageCount(bytes) };
+        }, setBusy);
+        onPdf(pdf);
       } catch (err) {
         console.error('PDF read failed:', err); // raw detail for debugging; users see the message below
         setError(err instanceof Error ? err.message : 'This PDF couldn’t be read.');
       } finally {
-        setBusy(false);
+        loading.current = false;
       }
     },
     [onPdf],
   );
 
-  const loadSample = useCallback(async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      const response = await fetch(`${import.meta.env.BASE_URL}sample.pdf`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      const pageCount = await getPageCount(bytes);
-      onPdf({ file: new File([bytes], 'sample.pdf', { type: 'application/pdf' }), bytes, pageCount });
-    } catch {
-      setError('Could not load the sample PDF.');
-    } finally {
-      setBusy(false);
-    }
-  }, [onPdf]);
+  const ingest = useCallback(
+    async (file: File) => {
+      if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+        setError('Please choose a PDF file.');
+        return;
+      }
+      await load(async () => file);
+    },
+    [load],
+  );
+
+  const loadSample = useCallback(
+    () =>
+      load(async () => {
+        try {
+          const response = await fetch(`${import.meta.env.BASE_URL}sample.pdf`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return new File([await response.blob()], 'sample.pdf', { type: 'application/pdf' });
+        } catch (cause) {
+          throw new Error('Could not load the sample PDF.', { cause });
+        }
+      }),
+    [load],
+  );
 
   const openPicker = () => {
     if (!disabled) inputRef.current?.click();
@@ -101,7 +113,10 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
           }}
         />
         {busy ? (
-          <p>Reading PDF…</p>
+          <p>
+            <span className="spinner" aria-hidden="true" />
+            Reading PDF…
+          </p>
         ) : current ? (
           <p>
             <strong>{current.file.name}</strong>

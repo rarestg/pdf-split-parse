@@ -533,6 +533,11 @@ body {
 }
 
 .dropzone {
+  /* Tall enough for the two-line loaded state, so the page doesn't jump when the text changes. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 102px;
   border: 1.5px dashed var(--panel-border);
   border-radius: 8px;
   padding: 26px 16px;
@@ -558,6 +563,24 @@ body {
   margin: 0;
   /* A long filename with no spaces would otherwise widen the whole page on phones. */
   overflow-wrap: anywhere;
+}
+
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 8px;
+  vertical-align: -0.125em;
+  border: 2px solid var(--panel-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .muted {
@@ -757,7 +780,8 @@ body {
   }
 
   .sunburst::after,
-  .sunburst-ripple {
+  .sunburst-ripple,
+  .spinner {
     display: none;
   }
 
