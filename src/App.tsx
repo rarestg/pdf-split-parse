@@ -185,7 +185,7 @@ export function App() {
     }
     setTestState({ status: 'testing' });
     try {
-      const { models: found } = await checkApiKey(key);
+      const found = await checkApiKey(key);
       if (found.length === 0) {
         setModels([]);
         setTestState({

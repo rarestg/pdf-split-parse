@@ -53,7 +53,7 @@ if (!key) {
 
 console.log('\n— live Gemini check —');
 try {
-  const { models } = await checkApiKey(key);
+  const models = await checkApiKey(key);
   console.log('models usable with this key:', models.length);
   const model = pickDefaultModel(models);
   if (!model) {

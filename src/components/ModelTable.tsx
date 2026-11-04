@@ -2,8 +2,8 @@ import { useState } from 'react';
 import {
   estimateCost,
   formatCostRange,
-  modelPricing,
   catalogEntry,
+  currentPrice,
   type GeminiModel,
   type MediaResolution,
 } from '../core';
@@ -35,7 +35,7 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const rows = models.map((model) => {
-    const pricing = modelPricing(model.name);
+    const pricing = currentPrice(model.name);
     const est = pages > 0 ? estimateCost(model.name, pages, mediaResolution) : null;
     // Sort by the midpoint of the job estimate (output dominates OCR cost, so the
     // low-end alone misranks), else by list price; unpriced rows sort last.

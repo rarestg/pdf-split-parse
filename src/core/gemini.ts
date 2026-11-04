@@ -22,6 +22,8 @@ export class GeminiHttpError extends Error {
     message: string,
     /** Server-suggested back-off in ms, parsed from a 429's RetryInfo (when present). */
     readonly retryAfterMs?: number,
+    /** A 429 whose quota limit is 0: this key's tier can't use the model at all. */
+    readonly zeroQuota = false,
   ) {
     super(message);
     this.name = 'GeminiHttpError';
@@ -59,14 +61,12 @@ export async function listModels(apiKey: string, signal?: AbortSignal): Promise<
   const models: GeminiModel[] = [];
   let pageToken: string | undefined;
   do {
-    const url = new URL(`${API_BASE}/models?pageSize=1000&key=${encodeURIComponent(apiKey)}`);
+    const url = new URL(`${API_BASE}/models`);
+    url.searchParams.set('pageSize', '1000');
     if (pageToken) url.searchParams.set('pageToken', pageToken);
 
-    const response = await fetch(url, { signal });
-    if (!response.ok) {
-      const { status, apiStatus, message, retryAfterMs } = await readHttpError(response);
-      throw new GeminiHttpError(status, apiStatus, message, retryAfterMs);
-    }
+    const response = await fetch(url, { headers: { 'x-goog-api-key': apiKey }, signal });
+    if (!response.ok) throw await readHttpError(response);
     const data = (await response.json()) as {
       models?: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }>;
       nextPageToken?: string;
@@ -111,11 +111,7 @@ export function pickSmarterModel(models: GeminiModel[], current: string): string
 }
 
 /** Validate a key and find models available for this key without running inference. */
-export async function checkApiKey(
-  apiKey: string,
-  signal?: AbortSignal,
-): Promise<{ models: GeminiModel[]; elapsedMs: number }> {
-  const startedAt = performance.now();
+export async function checkApiKey(apiKey: string, signal?: AbortSignal): Promise<GeminiModel[]> {
   let available: GeminiModel[];
   try {
     available = await listModels(apiKey, signal);
@@ -128,34 +124,20 @@ export async function checkApiKey(
   const probed = await Promise.all(
     candidates.map(async (entry) => (await probeModel(apiKey, entry.id, signal) ? entry : null)),
   );
-  const models = probed
+  return probed
     .filter((entry): entry is (typeof MODEL_CATALOG)[number] => entry !== null)
     .map((entry) => ({ name: entry.id, displayName: entry.label }));
-  return { models, elapsedMs: performance.now() - startedAt };
 }
 
-async function probeModel(apiKey: string, model: string, externalSignal?: AbortSignal): Promise<boolean> {
-  const controller = new AbortController();
-  const onExternalAbort = () => controller.abort(externalSignal?.reason);
-  if (externalSignal?.aborted) controller.abort(externalSignal.reason);
-  else externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
-  const timer = setTimeout(() => controller.abort(), 3000);
+/** False only when Gemini says this key can't use the model; a timeout or other error still lists it. */
+async function probeModel(apiKey: string, model: string, signal?: AbortSignal): Promise<boolean> {
+  const url = `${API_BASE}/models/${encodeURIComponent(model)}:countTokens`;
   try {
-    // Query-key + text/plain keeps these probes simple CORS requests without preflight.
-    const url = `${API_BASE}/models/${encodeURIComponent(model)}:countTokens?key=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'text/plain' },
-      body: '{"contents":[{"parts":[{"text":"hi"}]}]}',
-      signal: controller.signal,
-    });
-    return response.status !== 404 && response.status !== 403;
-  } catch {
-    if (externalSignal?.aborted) throw externalSignal.reason ?? new DOMException('Aborted', 'AbortError');
+    await postJson(url, apiKey, '{"contents":[{"parts":[{"text":"hi"}]}]}', 3000, signal);
     return true;
-  } finally {
-    clearTimeout(timer);
-    externalSignal?.removeEventListener('abort', onExternalAbort);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return !(error instanceof GeminiHttpError && (error.status === 404 || error.status === 403));
   }
 }
 
@@ -224,7 +206,7 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
     } catch (error) {
       params.onActivity?.('request', -1); // the request settled (failed)
       if (params.signal?.aborted) throw error; // user cancelled — abort the whole job
-      if (error instanceof GeminiHttpError && error.status === 429 && /limit:\s*0/i.test(error.message)) {
+      if (error instanceof GeminiHttpError && error.zeroQuota) {
         throw new GeminiFatalError(`${model} isn't available on the free tier. Use a paid key or pick another model.`);
       }
       const kind = classify(error);
@@ -372,11 +354,6 @@ function httpIsFatal(error: GeminiHttpError): boolean {
   return false;
 }
 
-/**
- * This specific model is listed but unusable for this key (deprecated, not found,
- * or not permitted). Only meaningful AFTER listModels has proven the key valid,
- * so a 403/PERMISSION_DENIED here is model-scoped, not a bad key.
- */
 function fatalMessage(error: unknown): string {
   if (error instanceof GeminiHttpError) {
     if (
@@ -420,10 +397,7 @@ async function postJson(
       body,
       signal: controller.signal,
     });
-    if (!response.ok) {
-      const { status, apiStatus, message, retryAfterMs } = await readHttpError(response);
-      throw new GeminiHttpError(status, apiStatus, message, retryAfterMs);
-    }
+    if (!response.ok) throw await readHttpError(response);
     return await response.json();
   } finally {
     clearTimeout(timer);
@@ -431,9 +405,7 @@ async function postJson(
   }
 }
 
-async function readHttpError(
-  response: Response,
-): Promise<{ status: number; apiStatus?: string; message: string; retryAfterMs?: number }> {
+async function readHttpError(response: Response): Promise<GeminiHttpError> {
   let detail = '';
   let apiStatus: string | undefined;
   let retryAfterMs: number | undefined;
@@ -457,10 +429,10 @@ async function readHttpError(
     /* body unavailable */
   }
   detail = detail.replace(/\s+/g, ' ').trim();
-  const hasZeroLimit = /limit:\s*0/i.test(detail);
-  if (detail.length > 300) detail = `${detail.slice(0, 300)}${hasZeroLimit ? ' … limit: 0' : ''}`;
+  const zeroQuota = response.status === 429 && /limit:\s*0\b/i.test(detail);
+  detail = detail.slice(0, 300);
   const message = `HTTP ${response.status} ${response.statusText}`.trim() + (detail ? `: ${detail}` : '');
-  return { status: response.status, apiStatus, message, retryAfterMs };
+  return new GeminiHttpError(response.status, apiStatus, message, retryAfterMs, zeroQuota);
 }
 
 /** Base64-encode bytes in chunks (browser- and Node-safe via global btoa). */

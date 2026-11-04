@@ -7,7 +7,7 @@ Vite + React wraps a framework-agnostic OCR core that merges the per-page result
 ## Features
 
 - **Super-parallel OCR.** Bounded worker pool, default 4 pages at once, configurable up to 128, built for paid keys with real rate limits, so a whole book can finish in well under a minute.
-- **BYO key model picker.** **Test** validates the key with `models.list`, then checks the supported catalog with non-billable `countTokens` probes and shows available models in a cost-sorted table.
+- **BYO key model picker.** **Test** validates the key with `models.list`, then checks the supported catalog with `countTokens` probes, which run no inference, and shows available models in a cost-sorted table.
 - **Cost tracking.** Up-front estimate, measured actual cost from API token counts, per-model retry breakdown, and localStorage lifetime aggregate tally.
 - **No blind retries.** Only 429 rate limits and 503 overloads auto-retry, with back-off and server `RetryInfo`; timeouts, truncation, and other errors surface fast.
 - **Targeted Re-OCR.** Failed and suspect pages can be rerun by page spec (`14, 15, 19-22`) on another model/detail, then merged back by page number.

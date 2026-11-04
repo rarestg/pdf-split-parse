@@ -52,18 +52,6 @@ export function estimateCost(model: string, pages: number, mediaResolution: Medi
   };
 }
 
-export interface ModelPricing {
-  /** USD per 1M input tokens. */
-  input: number;
-  /** USD per 1M output tokens. */
-  output: number;
-}
-
-/** The per-1M-token list price for a model, or null if it isn't in the price table. */
-export function modelPricing(model: string): ModelPricing | null {
-  return currentPrice(model);
-}
-
 /** Exact USD cost from measured token counts, or null if the model isn't in the price table. */
 export function actualCost(model: string, inputTokens: number, outputTokens: number): number | null {
   const pricing = currentPrice(model);
