@@ -33,9 +33,9 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^6.2.1",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "wrangler": "^4.93.0"
+    "wrangler": "^4.156.0"
   }
 }
