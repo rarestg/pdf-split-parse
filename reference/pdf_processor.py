@@ -40,7 +40,7 @@ except ImportError:
     load_dotenv = None
 
 
-DEFAULT_MODEL = "gemini-3-flash-preview"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_CONCURRENCY = 8
 DEFAULT_TIMEOUT_SECONDS = 180
 DEFAULT_RETRIES = 3

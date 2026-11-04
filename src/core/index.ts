@@ -5,6 +5,7 @@
  * is the part that could later be published as a standalone package.
  */
 export * from './types';
+export { MODEL_CATALOG, DEFAULT_MODEL, catalogEntry, currentPrice, type PriceTier, type CatalogModel } from './models';
 export { detectRepetition } from './anomaly';
 export {
   getPageCount,
@@ -18,14 +19,12 @@ export {
 export {
   ocrPage,
   listModels,
-  curateModels,
   checkApiKey,
-  pickCheapestModel,
+  pickDefaultModel,
   pickSmarterModel,
   GeminiHttpError,
   GeminiFatalError,
   type GeminiModel,
-  type KeyCheckResult,
   type OcrPageParams,
 } from './gemini';
 export { stripOuterMarkdownFence, buildOutputMarkdown } from './markdown';
@@ -35,7 +34,5 @@ export {
   actualCost,
   formatCost,
   formatCostRange,
-  modelPricing,
   type CostEstimate,
-  type ModelPricing,
 } from './cost';

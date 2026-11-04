@@ -14,10 +14,12 @@ import {
   checkApiKey,
   DEFAULT_CONCURRENCY,
   DEFAULT_MEDIA_RESOLUTION,
+  DEFAULT_MODEL,
   DEFAULT_PROMPT,
   DEFAULT_TIMEOUT_MS,
   formatCost,
-  pickCheapestModel,
+  MODEL_CATALOG,
+  pickDefaultModel,
   type GeminiModel,
 } from './core';
 
@@ -26,19 +28,15 @@ const THEME_KEY = 'pdf-split-parse:theme';
 type Theme = ColorScheme | 'system';
 
 // Shown (behind the lock) before a key is tested; replaced by the key's real
-// models after "Test". Role tags are derived from the id in Controls.
-const FALLBACK_MODELS: GeminiModel[] = [
-  { name: 'gemini-2.5-flash-lite' },
-  { name: 'gemini-2.5-flash' },
-  { name: 'gemini-2.5-pro' },
-];
+// models after "Test".
+const FALLBACK_MODELS: GeminiModel[] = MODEL_CATALOG.map(({ id, label }) => ({ name: id, displayName: label }));
 
 export function App() {
   const [apiKey, setApiKey] = useState('');
   const [rememberKey, setRememberKey] = useState(false);
   const [pdf, setPdf] = useState<LoadedPdf | null>(null);
   const [settings, setSettings] = useState<Settings>({
-    model: FALLBACK_MODELS[0].name,
+    model: DEFAULT_MODEL,
     concurrency: DEFAULT_CONCURRENCY,
     timeoutSec: DEFAULT_TIMEOUT_MS / 1000,
     mediaResolution: DEFAULT_MEDIA_RESOLUTION,
@@ -163,7 +161,7 @@ export function App() {
       setApiKey(value);
       setTestState({ status: 'idle' }); // a changed key needs a fresh test
       setModels(FALLBACK_MODELS); // the new key's models are unknown until Test
-      updateSettings({ model: FALLBACK_MODELS[0].name }); // don't run a model the old key revealed
+      updateSettings({ model: DEFAULT_MODEL }); // don't run a model the old key revealed
     },
     [updateSettings],
   );
@@ -187,16 +185,21 @@ export function App() {
     }
     setTestState({ status: 'testing' });
     try {
-      const { models: found, testedModel, elapsedMs, tested, note } = await checkApiKey(key);
-      if (found.length) {
-        setModels(found);
-        updateSettings({ model: pickCheapestModel(found) ?? testedModel });
+      const found = await checkApiKey(key);
+      if (found.length === 0) {
+        setModels([]);
+        setTestState({
+          status: 'error',
+          message: 'Key valid, but none of the supported models are available to it.',
+        });
+        return;
       }
+      setModels(found);
+      const selectedModel = pickDefaultModel(found);
+      if (selectedModel) updateSettings({ model: selectedModel });
       setTestState({
         status: 'ok',
-        message: tested
-          ? `Tested ${testedModel} in ${(elapsedMs / 1000).toFixed(1)}s · ${found.length} models available`
-          : note ?? `Key valid · ${found.length} models available`,
+        message: `Key valid · ${found.length} models available`,
       });
     } catch (error) {
       setTestState({ status: 'error', message: error instanceof Error ? error.message : String(error) });

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
   estimateCost,
   formatCostRange,
-  modelPricing,
+  catalogEntry,
+  currentPrice,
   type GeminiModel,
   type MediaResolution,
 } from '../core';
@@ -34,7 +35,7 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const rows = models.map((model) => {
-    const pricing = modelPricing(model.name);
+    const pricing = currentPrice(model.name);
     const est = pages > 0 ? estimateCost(model.name, pages, mediaResolution) : null;
     // Sort by the midpoint of the job estimate (output dominates OCR cost, so the
     // low-end alone misranks), else by list price; unpriced rows sort last.
@@ -44,7 +45,14 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
         : pricing
           ? pricing.input
           : Number.POSITIVE_INFINITY;
-    return { name: model.name, pricing, est, sortKey };
+    return {
+      name: model.name,
+      displayName: model.displayName,
+      paidOnly: catalogEntry(model.name)?.paidOnly ?? false,
+      pricing,
+      est,
+      sortKey,
+    };
   });
 
   rows.sort((a, b) => {
@@ -117,7 +125,13 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
                     aria-label={`Select ${row.name}`}
                   />
                 </td>
-                <td className="model-id">{row.name}</td>
+                <td className="model-id">
+                  <span className="model-primary">{row.displayName ?? row.name}</span>
+                  {row.paidOnly && <span className="model-badge">Paid key</span>}
+                  {row.displayName && row.displayName !== row.name && (
+                    <small className="model-name-id">{row.name}</small>
+                  )}
+                </td>
                 <td className="num price-col">{row.pricing ? row.pricing.input.toFixed(2) : '—'}</td>
                 <td className="num price-col">{row.pricing ? row.pricing.output.toFixed(2) : '—'}</td>
                 <td className="num">{cost}</td>
