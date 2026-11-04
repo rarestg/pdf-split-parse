@@ -86,7 +86,7 @@ The parsed `PDFDocument` is reused across the initial run and manual retries. Ex
 - `src/components/*` - API key, file drop, controls, model table, progress, retry, cost, result UI.
 - `src/hooks/useOcrJob.ts` - job state machine, parsed-PDF reuse, cost ledger, merge logic.
 - `src/hooks/useLifetimeStats.ts` - localStorage aggregate spend/page/PDF tally.
-- `index.html` - CSP `<meta>` egress lock to self + Google's endpoint.
+- `index.html` - CSP `<meta>` egress lock to self + Google's endpoint, plus Cloudflare's analytics script.
 - `public/_headers` - Cloudflare static-asset headers: CSP egress lock (incl. `frame-ancestors`) and immutable caching for hashed `/assets/*`.
 - `public/favicon.svg` - the site mark, and the source for the rasterized icons.
 - `public/og.png`, `public/favicon-96.png`, `public/apple-touch-icon.png` - committed share-card/icon rasters; regenerate with `npm run assets:og` (sources in `scripts/og/`).
@@ -124,7 +124,9 @@ The core uses browser/Node globals such as `fetch`, `btoa`, `AbortController`, a
 
 ## Privacy And No Backend
 
-The built app is static: no app server, upload endpoint, database, or proxy. A CSP egress lock holds browser connections to `'self'` and `https://generativelanguage.googleapis.com`, so PDF pages and the API key can only reach Google; it ships in the `index.html` `<meta>` and again in `public/_headers` (which also adds `frame-ancestors 'none'`).
+The built app is static: no app server, upload endpoint, database, or proxy. It sends PDF pages and the API key only to Google. A CSP egress lock holds browser connections to `'self'` and `https://generativelanguage.googleapis.com`; it ships in the `index.html` `<meta>` and again in `public/_headers` (which also adds `frame-ancestors 'none'`).
+
+The CSP also allows one third-party script: Cloudflare Web Analytics (`https://static.cloudflareinsights.com`). Cloudflare injects it at the edge, and it reports page-view analytics to this site's own domain. Cloudflare already serves the rest of the site's code.
 
 The app stores three things in `localStorage`: your theme choice, a lifetime cost tally, and your key if you check **Remember in this browser**. The tally holds no key, filename, or document content.
 
@@ -147,7 +149,7 @@ npm run deploy   # npm run build && wrangler deploy
 
 `public/_headers` (the CSP egress lock, including `frame-ancestors 'none'`) is honored by Workers Static Assets and applied to every static response; hashed `/assets/*` are cached immutably while `index.html` revalidates so deploys take effect at once. `base: './'` keeps the build origin-agnostic.
 
-**Zone settings** (Cloudflare dashboard, not in this repo): _Always Use HTTPS_ (http→https 301) and _HSTS_ are enabled for the zone; encryption mode is moot since there is no origin server. A Single Redirect rule 301s `www` to the apex (`https://www.*` → `https://${1}`, query string preserved) so search signals consolidate on one host — redirect rules run before Workers, so the `www` custom-domain binding in `wrangler.jsonc` stays as an unreachable fallback.
+**Zone settings** (Cloudflare dashboard, not in this repo): _Always Use HTTPS_ (http→https 301) and _HSTS_ are enabled for the zone; encryption mode is moot since there is no origin server. A Single Redirect rule 301s `www` to the apex (`https://www.*` → `https://${1}`, query string preserved) so search signals consolidate on one host — redirect rules run before Workers, so the `www` custom-domain binding in `wrangler.jsonc` stays as an unreachable fallback. _Web Analytics_ is on, so Cloudflare injects its beacon into production HTML; PR preview URLs don't get it.
 
 ## Develop And Verify
 

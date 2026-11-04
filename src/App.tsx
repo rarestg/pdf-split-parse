@@ -188,7 +188,7 @@ export function App() {
         setModels([]);
         setTestState({
           status: 'error',
-          message: 'Key valid, but this key can’t access any of the supported models.',
+          message: 'This key is valid but can’t access any of the supported models.',
         });
         return;
       }

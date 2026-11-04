@@ -12,11 +12,15 @@ const MALFORMED_PDF_MESSAGE =
   'This PDF couldn’t be read — it may be damaged or use an unusual structure. ' +
   'Try re-saving it (Print → Save as PDF) and uploading again.';
 
+const CHUNK_FAILED_MESSAGE = 'This page couldn’t finish loading. Please reload it and try again.';
+
 /** Load a PDF once; reuse it to extract pages lazily (bounds memory). */
 export async function loadPdf(pdfBytes: Uint8Array): Promise<PDFDocument> {
   // Loaded on demand because pdf-lib is over half of the app's JavaScript. Outside the try below,
   // so a failed download isn't reported as a damaged PDF.
-  const { PDFDocument } = await import('pdf-lib');
+  const { PDFDocument } = await import('pdf-lib').catch(() => {
+    throw new Error(CHUNK_FAILED_MESSAGE);
+  });
   // pdf-lib can't decrypt and is a strict parser, so its raw failures (e.g.
   // "Expected instance of PDFDict, but got undefined") are meaningless to users.
   let doc: PDFDocument;
