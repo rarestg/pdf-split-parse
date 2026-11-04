@@ -21,3 +21,10 @@ This is a static, client-side PDF-to-Markdown OCR app. See `README.md` for the d
 - CI has no Gemini key, so run `npm run smoke` with a key after changing how the app calls Gemini.
 - `npm run smoke` fails only if a step throws, the key has no supported model, or live OCR returns an error; it does not check output quality. With no API key it skips the live Gemini call and still exits 0, so read its output before saying Gemini was tested. With a key it makes one billed OCR call.
 - `npm run build` warns that `theme-init.js` can't be bundled. This is expected: the script must stay blocking and same-origin, because the CSP forbids inline scripts and `type="module"` would delay it past first paint.
+
+## Todo
+
+- Upgrade to React 19 in one hand-made PR. `react`, `react-dom`, `@types/react` and `@types/react-dom` must move together, because `npm ci` rejects mismatched versions. `.github/dependabot.yml` ignores their major versions until then; remove those entries in the same PR.
+- Require a successful key Test before Convert, so people choose their model. Today a remembered key lets Convert run without a Test, and the job silently uses `DEFAULT_MODEL`.
+- Run `/impeccable` on this project to review the design, and check whether some fonts are too small.
+- Rework the "within estimate" cost badge, and add a better metrics overview: total cost, plus cost and total tokens per model.
