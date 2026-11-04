@@ -1,10 +1,11 @@
 # Cloudflare static-asset headers (https://developers.cloudflare.com/workers/static-assets/headers/)
-# The strict connect-src is the privacy guarantee: the page has no third-party
-# egress except Google's Gemini endpoint, so a BYO key can't be sent elsewhere.
+# The strict connect-src limits the page to itself and Google's Gemini endpoint.
+# script-src also allows Cloudflare's Web Analytics beacon, which Cloudflare injects
+# at the edge and which reports to this site's own domain (/cdn-cgi/rum).
 # (A matching <meta> CSP in index.html covers non-Cloudflare hosts; frame-ancestors
 # can only be delivered as a header, so it lives here.)
 /*
-  Content-Security-Policy: default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' https://static.cloudflareinsights.com; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin

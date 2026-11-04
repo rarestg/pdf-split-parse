@@ -4,8 +4,8 @@ This is a static, client-side PDF-to-Markdown OCR app. See `README.md` for the d
 
 ## Boundaries
 
-- Keep the app static. Its only third-party connection is Google's Gemini API, and that limit is the privacy guarantee. Ask before adding a backend, proxy, analytics, or another external request.
-- Egress is CSP-locked in two files — keep the policy in `index.html` and `public/_headers` in sync. Only `frame-ancestors` differs, because it works only as a header.
+- Keep the app static. It sends PDF pages and the key only to Google's Gemini API. The only other third party is Cloudflare Web Analytics, whose beacon Cloudflare injects at the edge and which reports to this site's own domain. Ask before adding a backend, proxy, or another external request.
+- Egress is CSP-locked in two files — keep the policy in `index.html` and `public/_headers` in sync. Only `frame-ancestors` differs, because it works only as a header. Keep `https://static.cloudflareinsights.com` in `script-src`, or the CSP blocks the beacon and analytics stop.
 - Put OCR behavior in `src/core/`; keep React state and presentation in `src/hooks/` and `src/components/`. `src/core/` must also run in Node, because `npm test` and `npm run smoke` import it there; `npm run build` fails if it uses browser-only globals.
 - Every change to `main` goes through a PR, because pushing to `main` deploys to production through Cloudflare Workers Builds. Pull requests get preview URLs.
 - Send the Gemini key in the `x-goog-api-key` header, never in a URL. A URL saves about 140 ms on the first Test click, which doesn't justify the risk of the key being logged.

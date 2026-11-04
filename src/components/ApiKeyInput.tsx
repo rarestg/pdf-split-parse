@@ -146,7 +146,8 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
         <li>
           <ShieldIcon />
           <span>
-            This app has no backend. Requests go straight from your browser to Gemini&rsquo;s API, never to us.
+            This app has no backend. Your PDF pages and key go straight from your browser to Gemini&rsquo;s API, never
+            to us.
           </span>
         </li>
         <li>
