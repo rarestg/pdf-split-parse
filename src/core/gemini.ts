@@ -304,11 +304,11 @@ function interpretResponse(data: unknown): string {
     return '';
   }
   if (candidate.finishReason === 'MAX_TOKENS') {
-    throw new PageError('OCR output was truncated (MAX_TOKENS); the page may be too dense — try another model.');
+    throw new PageError('Output was cut off — the page may be too dense for this model. Try another model.');
   }
   // SAFETY, RECITATION, OTHER, etc. can cut the text short or remove it, so don't pass it off as a full page.
   if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-    throw new PageError(`Gemini stopped early (${candidate.finishReason}); try another model.`);
+    throw new PageError(`Gemini stopped before finishing (${candidate.finishReason}); try another model.`);
   }
   const parts = candidate.content?.parts;
   // Skip thought parts (only present if thinking summaries are enabled); join the rest.

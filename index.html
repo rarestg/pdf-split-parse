@@ -7,8 +7,8 @@
       Egress lock that travels with the HTML on ANY host (not just Cloudflare):
       the page can only fetch from itself and Google's Gemini endpoint. script-src
       also allows Cloudflare's Web Analytics beacon, which Cloudflare injects at the
-      edge and which reports to this site's own domain. frame-ancestors can't be set
-      via <meta>, so it lives in public/_headers (applied by Cloudflare).
+      edge and which reports to this site's own domain (/cdn-cgi/rum). frame-ancestors
+      can't be set via <meta>, so it lives in public/_headers (applied by Cloudflare).
     -->
     <meta
       http-equiv="Content-Security-Policy"
