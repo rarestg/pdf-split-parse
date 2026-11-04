@@ -63,6 +63,7 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
 
   return (
     <section className="panel">
+      {/* biome-ignore lint/a11y/useSemanticElements: a <button> can't contain the dropzone's file input. */}
       <div
         className={`dropzone${dragOver ? ' drag' : ''}${disabled ? ' disabled' : ''}`}
         onDragOver={(event) => {

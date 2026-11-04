@@ -3,19 +3,19 @@
 // before first paint — no flash. App.tsx then owns the theme at runtime, reading
 // the same localStorage key and applying the same class, so its first effect is a
 // visual no-op. Key absent = follow the OS ("system").
-(function () {
+(() => {
   // Read the stored choice in its OWN try: if storage is blocked (privacy mode),
   // fall back to "system" and still honor the OS preference below — don't let a
   // storage error skip the matchMedia check and flash light on a dark OS.
-  var theme = 'system';
+  let theme = 'system';
   try {
-    var stored = localStorage.getItem('pdf-split-parse:theme');
+    const stored = localStorage.getItem('pdf-split-parse:theme');
     if (stored === 'light' || stored === 'dark' || stored === 'system') theme = stored;
   } catch (_) {
     /* storage blocked — keep "system" */
   }
   try {
-    var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark', dark);
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
   } catch (_) {

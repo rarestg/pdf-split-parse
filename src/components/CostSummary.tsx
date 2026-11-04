@@ -114,7 +114,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
       `${unmeasuredFailures} page${unmeasuredFailures === 1 ? '' : 's'} failed with no billable response`,
     );
   }
-  const note = noteParts.length ? noteParts.join('; ').replace(/^./, (c) => c.toUpperCase()) + '.' : '';
+  const note = noteParts.length ? `${noteParts.join('; ').replace(/^./, (c) => c.toUpperCase())}.` : '';
 
   // Per-page timing over SUCCESSFUL pages only (a timed-out page would otherwise inflate "slowest").
   const times = results.filter((r) => !r.error && r.elapsedMs > 0).map((r) => r.elapsedMs);

@@ -1,4 +1,4 @@
-import { type MediaResolution, type PageInput, type PageResult } from './types';
+import type { MediaResolution, PageInput, PageResult } from './types';
 import { catalogEntry, currentPrice, DEFAULT_MODEL, MODEL_CATALOG } from './models';
 import { debugLog, debugTime } from './debug';
 import { stripOuterMarkdownFence } from './markdown';

@@ -53,12 +53,11 @@ const noteIconProps = {
   strokeWidth: 2,
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
-  'aria-hidden': true,
 } as const;
 
 function ShieldIcon() {
   return (
-    <svg {...noteIconProps}>
+    <svg {...noteIconProps} aria-hidden="true">
       <path d="M12 3l7 3v5c0 4.4-3 7.5-7 8.5-4-1-7-4.1-7-8.5V6z" />
       <path d="M9 12l2 2 4-4" />
     </svg>
@@ -67,7 +66,7 @@ function ShieldIcon() {
 
 function KeyIcon() {
   return (
-    <svg {...noteIconProps}>
+    <svg {...noteIconProps} aria-hidden="true">
       <circle cx="8" cy="16" r="3.2" />
       <path d="M10.3 13.7 19 5M15.5 8.5l2.5 2.5M18 6l2 2" />
     </svg>
@@ -76,7 +75,7 @@ function KeyIcon() {
 
 function ArrowIcon() {
   return (
-    <svg {...noteIconProps}>
+    <svg {...noteIconProps} aria-hidden="true">
       <path d="M7 17 17 7M8 7h9v9" />
     </svg>
   );

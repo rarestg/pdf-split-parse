@@ -17,7 +17,7 @@ export function buildOutputMarkdown(results: PageResult[]): string {
   const parts: string[] = [];
   for (const result of results) {
     if (result.error) parts.push(`[OCR failed: ${result.error}]`);
-    else if (result.text && result.text.trim()) parts.push(result.text);
+    else if (result.text?.trim()) parts.push(result.text);
   }
-  return parts.join('\n\n').replace(/\s+$/, '') + '\n';
+  return `${parts.join('\n\n').replace(/\s+$/, '')}\n`;
 }

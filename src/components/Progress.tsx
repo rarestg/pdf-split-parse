@@ -145,8 +145,8 @@ export function Progress({
       </div>
       {!reOcr && flagged.length > 0 && (
         <ul className="page-log">
-          {flagged.map((result, index) => (
-            <li key={`${result.pageNumber}-${index}`} className={result.error ? 'err' : 'warn'}>
+          {flagged.map((result) => (
+            <li key={result.pageNumber} className={result.error ? 'err' : 'warn'}>
               {result.error
                 ? `page ${result.pageNumber} failed: ${result.error}`
                 : `page ${result.pageNumber} suspect: ${result.warning}`}
