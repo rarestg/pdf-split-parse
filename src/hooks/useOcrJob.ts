@@ -46,7 +46,13 @@ export interface JobState {
   retryElapsedMs: number;
   costByModel: CostByModel;
   /** Summary of the most recent manual retry (null until one runs; reset by a fresh run). */
-  lastRetry: { pages: number[]; model: string; mediaResolution: MediaResolution; fixed: number; remaining: number } | null;
+  lastRetry: {
+    pages: number[];
+    model: string;
+    mediaResolution: MediaResolution;
+    fixed: number;
+    remaining: number;
+  } | null;
 }
 
 const INITIAL: JobState = {
@@ -292,27 +298,32 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         });
 
       try {
-        const { results } = await runOcrPipeline(ctx.pdfBytes, ctx.fileName, {
-          ...ctx.options,
-          model: retryModel,
-          mediaResolution: overrides.mediaResolution,
-          pages: pageNumbers,
-          signal: controller.signal,
-          onStats: (stats) => {
-            if (abortRef.current === controller) reportStats(stats);
+        const { results } = await runOcrPipeline(
+          ctx.pdfBytes,
+          ctx.fileName,
+          {
+            ...ctx.options,
+            model: retryModel,
+            mediaResolution: overrides.mediaResolution,
+            pages: pageNumbers,
+            signal: controller.signal,
+            onStats: (stats) => {
+              if (abortRef.current === controller) reportStats(stats);
+            },
+            onProgress: (result, completed, total) => {
+              if (abortRef.current !== controller) return; // a superseded retry must not write state
+              retryResults.push({ ...result, retried: true });
+              setState((prev) => ({
+                ...prev,
+                status: 'running',
+                completed,
+                total,
+                costByModel: addTokens(prev.costByModel, retryModel, result),
+              }));
+            },
           },
-          onProgress: (result, completed, total) => {
-            if (abortRef.current !== controller) return; // a superseded retry must not write state
-            retryResults.push({ ...result, retried: true });
-            setState((prev) => ({
-              ...prev,
-              status: 'running',
-              completed,
-              total,
-              costByModel: addTokens(prev.costByModel, retryModel, result),
-            }));
-          },
-        }, ctx.source);
+          ctx.source,
+        );
         if (abortRef.current !== controller) return; // superseded mid-retry — don't merge over the new job
         settle('done');
         fireComplete(true, 0, invocationCost(retryModel, results));

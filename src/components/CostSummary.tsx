@@ -1,12 +1,5 @@
 import { Fragment } from 'react';
-import {
-  actualCost,
-  estimateCost,
-  formatCost,
-  formatCostRange,
-  type MediaResolution,
-  type PageResult,
-} from '../core';
+import { actualCost, estimateCost, formatCost, formatCostRange, type MediaResolution, type PageResult } from '../core';
 import type { CostByModel } from '../hooks/useOcrJob';
 
 interface Props {
@@ -28,7 +21,14 @@ const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 // Small chip/note glyphs (decorative; text carries the meaning).
 const CheckMini = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M3 8.4l3 3 7-7.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M3 8.4l3 3 7-7.2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 const AlertMini = () => (
@@ -52,8 +52,8 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
     return (
       <div className="cost-summary">
         <p className="cost-note">
-          <AlertMini /> {unmeasuredFailures} page{unmeasuredFailures === 1 ? '' : 's'} failed before any
-          billable response (no cost reported).
+          <AlertMini /> {unmeasuredFailures} page{unmeasuredFailures === 1 ? '' : 's'} failed before any billable
+          response (no cost reported).
         </p>
       </div>
     );
@@ -110,9 +110,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
     );
   }
   if (unmeasuredFailures > 0) {
-    noteParts.push(
-      `${unmeasuredFailures} page${unmeasuredFailures === 1 ? '' : 's'} failed with no billable response`,
-    );
+    noteParts.push(`${unmeasuredFailures} page${unmeasuredFailures === 1 ? '' : 's'} failed with no billable response`);
   }
   const note = noteParts.length ? `${noteParts.join('; ').replace(/^./, (c) => c.toUpperCase())}.` : '';
 
@@ -163,8 +161,7 @@ export function CostSummary({ results, costByModel, model, mediaResolution }: Pr
         <>
           <p className="mixed-note">
             Mixed models — no single estimate comparison.
-            {unpricedModels > 0 &&
-              ` Cost excludes ${unpricedModels} unpriced model${unpricedModels === 1 ? '' : 's'}.`}
+            {unpricedModels > 0 && ` Cost excludes ${unpricedModels} unpriced model${unpricedModels === 1 ? '' : 's'}.`}
           </p>
           <div className="cost-by-model">
             <span className="cbm-head">Model</span>

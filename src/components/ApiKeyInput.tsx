@@ -37,7 +37,13 @@ function CircleXSolid() {
   return (
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="currentColor" />
-      <path className="glyph" d="M14.8 9.2l-5.6 5.6M9.2 9.2l5.6 5.6" fill="none" strokeWidth="2.2" strokeLinecap="round" />
+      <path
+        className="glyph"
+        d="M14.8 9.2l-5.6 5.6M9.2 9.2l5.6 5.6"
+        fill="none"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -115,9 +121,7 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
           onClick={onTest}
           disabled={!apiKey.trim() || testState.status === 'testing'}
         >
-          <SwapLabel options={['Test', 'Testing…']}>
-            {testState.status === 'testing' ? 'Testing…' : 'Test'}
-          </SwapLabel>
+          <SwapLabel options={['Test', 'Testing…']}>{testState.status === 'testing' ? 'Testing…' : 'Test'}</SwapLabel>
         </button>
       </div>
 
@@ -135,24 +139,19 @@ export function ApiKeyInput({ apiKey, onApiKey, remember, onRemember, onTest, te
       )}
 
       <label className="checkbox-row">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(event) => onRemember(event.target.checked)}
-        />
+        <input type="checkbox" checked={remember} onChange={(event) => onRemember(event.target.checked)} />
         Remember in this browser
       </label>
       <ul className="key-notes">
         <li>
           <ShieldIcon />
-          <span>This app has no backend. Requests go straight from your browser to Gemini&rsquo;s API, never to us.</span>
+          <span>
+            This app has no backend. Requests go straight from your browser to Gemini&rsquo;s API, never to us.
+          </span>
         </li>
         <li>
           <KeyIcon />
-          <span>
-            I recommend a paid key: free-tier keys are rate-limited, and their content may be
-            human-reviewed.
-          </span>
+          <span>I recommend a paid key: free-tier keys are rate-limited, and their content may be human-reviewed.</span>
         </li>
         <li>
           <ArrowIcon />

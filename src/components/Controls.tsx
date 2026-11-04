@@ -94,7 +94,14 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
         <span className="field-label">Model</span>
         {needsTest ? (
           <p id="model-lock" className="lock-note" role="note">
-            <svg className="lock-note-icon" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <svg
+              className="lock-note-icon"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
               <path
                 fill="none"
                 stroke="currentColor"
@@ -199,7 +206,14 @@ export function Controls({ settings, onChange, pageCount, selectedPages, disable
           onClick={() => setShowPrompt((value) => !value)}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M6 3.5 10.5 8 6 12.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           Advanced: OCR prompt
         </button>

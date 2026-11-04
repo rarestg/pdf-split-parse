@@ -27,7 +27,14 @@ interface Props {
 function StatusIcon({ kind }: { kind: 'ok' | 'warn' | 'danger' }) {
   const glyph =
     kind === 'ok' ? (
-      <path className="glyph" d="M4.5 8.2l2.2 2.2 4.6-4.8" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        className="glyph"
+        d="M4.5 8.2l2.2 2.2 4.6-4.8"
+        fill="none"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     ) : kind === 'warn' ? (
       <path className="glyph" d="M8 4.4v4.2M8 11.1v.05" fill="none" strokeWidth="1.6" strokeLinecap="round" />
     ) : (
@@ -105,10 +112,16 @@ export function Progress({
                   {reOcr ? 'Re-OCR' : 'Converting'} {completed}/{total}
                   {inFlight > 0 && <span aria-hidden="true"> · {inFlight} in flight</span>}
                   {retrying > 0 && (
-                    <span className="stat-retry" aria-hidden="true"> · {retrying} retrying</span>
+                    <span className="stat-retry" aria-hidden="true">
+                      {' '}
+                      · {retrying} retrying
+                    </span>
                   )}
                   {!reOcr && failed > 0 && (
-                    <span className="stat-fail" aria-hidden="true"> · {failed} failed</span>
+                    <span className="stat-fail" aria-hidden="true">
+                      {' '}
+                      · {failed} failed
+                    </span>
                   )}
                   <span aria-hidden="true"> · {seconds}</span>
                 </span>

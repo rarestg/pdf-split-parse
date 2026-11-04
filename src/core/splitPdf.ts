@@ -66,7 +66,10 @@ export function validatePageRange(total: number, startPage: number, endPage: num
   }
 }
 
-export interface ParsedPageSpec { pages: number[]; ignored: string[]; }
+export interface ParsedPageSpec {
+  pages: number[];
+  ignored: string[];
+}
 
 /** Parse a free-text page spec ("14, 15, 19-22, 32") against a known page count. Lenient: commas
  *  and/or whitespace; inclusive ranges (- or –, with or without surrounding spaces); reversed ranges
@@ -80,14 +83,19 @@ export function parsePageSpec(spec: string, pageCount: number): ParsedPageSpec {
   for (const raw of normalized.split(/[\s,]+/).filter(Boolean)) {
     const range = /^(\d+)\s*[-–]\s*(\d+)$/.exec(raw);
     if (range) {
-      let a = Number(range[1]); let b = Number(range[2]);
+      let a = Number(range[1]);
+      let b = Number(range[2]);
       if (a > b) [a, b] = [b, a];
       let added = false;
-      for (let p = Math.max(1, a); p <= Math.min(pageCount, b); p++) { pages.add(p); added = true; }
+      for (let p = Math.max(1, a); p <= Math.min(pageCount, b); p++) {
+        pages.add(p);
+        added = true;
+      }
       if (!added) ignored.push(raw);
     } else if (/^\d+$/.test(raw)) {
       const p = Number(raw);
-      if (p >= 1 && p <= pageCount) pages.add(p); else ignored.push(raw);
+      if (p >= 1 && p <= pageCount) pages.add(p);
+      else ignored.push(raw);
     } else {
       ignored.push(raw);
     }
@@ -110,11 +118,7 @@ export async function extractPage(source: PDFDocument, pageNumber: number): Prom
  * Eagerly extract pages [startPage, endPage] (1-based, inclusive) into standalone
  * single-page PDFs. Convenience for callers/tests; the pipeline extracts lazily.
  */
-export async function splitPdf(
-  pdfBytes: Uint8Array,
-  startPage: number,
-  endPage: number,
-): Promise<PageInput[]> {
+export async function splitPdf(pdfBytes: Uint8Array, startPage: number, endPage: number): Promise<PageInput[]> {
   const source = await loadPdf(pdfBytes);
   validatePageRange(source.getPageCount(), startPage, endPage);
 

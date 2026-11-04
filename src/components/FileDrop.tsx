@@ -107,8 +107,8 @@ export function FileDrop({ onPdf, current, disabled }: Props) {
             <strong>{current.file.name}</strong>
             <br />
             <span className="muted">
-              {current.pageCount} page{current.pageCount === 1 ? '' : 's'} ·{' '}
-              {(current.file.size / 1024).toFixed(0)} KB · click to replace
+              {current.pageCount} page{current.pageCount === 1 ? '' : 's'} · {(current.file.size / 1024).toFixed(0)} KB
+              · click to replace
             </span>
           </p>
         ) : (

@@ -40,9 +40,7 @@ console.log('page count:', pageCount);
 const pages = await splitPdf(bytes, 1, pageCount);
 console.log('split pages:', pages.length, '· first page is', pages[0].pdfBytes.length, 'bytes');
 
-const sampleMarkdown = buildOutputMarkdown([
-  { pageNumber: 1, text: '# Hello\n\nWorld', elapsedMs: 120, attempts: 1 },
-]);
+const sampleMarkdown = buildOutputMarkdown([{ pageNumber: 1, text: '# Hello\n\nWorld', elapsedMs: 120, attempts: 1 }]);
 console.log(`merged markdown:\n${sampleMarkdown.split('\n').slice(0, 4).join('\n')}`);
 
 const key = loadKey();
