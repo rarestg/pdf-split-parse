@@ -157,8 +157,8 @@ export interface OcrPageParams {
  * OCR a single-page PDF via Gemini generateContent.
  *
  * - A 429 rate-limit or 503 overload is retried with back-off (server-suggested delay when present).
- * - Every other failure (timeout, network, 500, content block, MAX_TOKENS truncation,
- *   malformed request) is recorded immediately as a page-level `error` — no blind retries;
+ * - Every other failure (timeout, network, 500, content block, MAX_TOKENS truncation, early stop,
+ *   empty reply, malformed request) is recorded immediately as a page-level `error` — no blind retries;
  *   the user surfaces these and retries the subset by hand (optionally on a smarter model).
  * - Fatal errors (bad/unauthorized key, model not available) throw
  *   `GeminiFatalError` so the caller can abort the whole job.
@@ -241,6 +241,8 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
     const elapsedMs = performance.now() - startedAt;
     try {
       const text = stripOuterMarkdownFence(interpretResponse(data));
+      // Blank pages return the prompt's "[Blank page]" marker, so no text at all means something went wrong.
+      if (!text) throw new PageError('Gemini returned no text.');
       const totalSecs = ((performance.now() - pageStartedAt) / 1000).toFixed(1);
       debugLog(`${tag} ✓ try${attempt} in ${totalSecs}s · ${usage.inputTokens}→${usage.outputTokens} tok`);
       return {
@@ -303,9 +305,12 @@ function interpretResponse(data: unknown): string {
   if (candidate.finishReason === 'MAX_TOKENS') {
     throw new PageError('OCR output was truncated (MAX_TOKENS); the page may be too dense — try another model.');
   }
+  // SAFETY, RECITATION, OTHER, etc. can cut the text short or remove it, so don't pass it off as a full page.
+  if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+    throw new PageError(`Gemini stopped early (${candidate.finishReason}); try another model.`);
+  }
   const parts = candidate.content?.parts;
   // Skip thought parts (only present if thinking summaries are enabled); join the rest.
-  // Empty text (e.g. a SAFETY-blocked page) falls through to a [Blank page], matching the reference.
   return Array.isArray(parts)
     ? parts.filter((part) => part?.thought !== true).map((part) => part?.text ?? '').join('')
     : '';
