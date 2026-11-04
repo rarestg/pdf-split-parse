@@ -14,7 +14,7 @@ function runWithReply(status: number, reply: unknown) {
   return runOcrPipeline(pdf, 'sample.pdf', { apiKey: 'test', model: 'gemini-3.5-flash-lite' });
 }
 
-const usageMetadata = { promptTokenCount: 500, candidatesTokenCount: 0 };
+const usageMetadata = { promptTokenCount: 500, candidatesTokenCount: 7, thoughtsTokenCount: 3 };
 const textReply = (text: string, finishReason: string) => ({
   candidates: [{ finishReason, content: { parts: [{ text }] } }],
   usageMetadata,
@@ -31,6 +31,7 @@ for (const [name, reply] of [
     const { results, markdown } = await runWithReply(200, reply);
     assert.ok(results[0].error);
     assert.equal(results[0].inputTokens, 500);
+    assert.equal(results[0].outputTokens, 10);
     assert.match(markdown, /^\[OCR failed: /);
   });
 }
