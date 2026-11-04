@@ -29,7 +29,7 @@ Other options: `--model`, `--media-resolution`, `--prompt-file`, `--retries`,
 
 > The built-in default model name changes over time. If you get a
 > "model not found" error, pass a current one with `--model`, e.g.
-> `--model gemini-2.5-flash`.
+> `--model gemini-3.5-flash-lite`.
 
 ## How it works
 

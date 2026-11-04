@@ -1,7 +1,7 @@
 /**
  * End-to-end smoke test for the OCR core, runnable from Node (the core is
  * browser+Node safe). Offline checks always run; the live Gemini call runs only
- * when a valid GEMINI_API_KEY is present in _local/.env.
+ * when GEMINI_API_KEY is set in the environment or _local/.env.
  *
  *   npm run smoke
  */
@@ -10,17 +10,18 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildOutputMarkdown,
-  DEFAULT_MODEL,
   DEFAULT_PROMPT,
+  checkApiKey,
   getPageCount,
-  listModels,
   ocrPage,
+  pickDefaultModel,
   splitPdf,
 } from '../src/core/index';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function loadKey(): string | null {
+  if (process.env.GEMINI_API_KEY?.trim()) return process.env.GEMINI_API_KEY.trim();
   try {
     const env = readFileSync(join(root, '_local/.env'), 'utf8');
     const match = env.match(/^GEMINI_API_KEY=(.*)$/m);
@@ -46,15 +47,19 @@ console.log('merged markdown:\n' + sampleMarkdown.split('\n').slice(0, 4).join('
 
 const key = loadKey();
 if (!key) {
-  console.log('\nNo GEMINI_API_KEY in _local/.env — skipping the live Gemini call.');
+  console.log('\nNo GEMINI_API_KEY in the environment or _local/.env — skipping the live Gemini call.');
   process.exit(0);
 }
 
 console.log('\n— live Gemini check —');
 try {
-  const models = await listModels(key);
+  const { models } = await checkApiKey(key);
   console.log('models usable with this key:', models.length);
-  const model = models.find((m) => /flash/i.test(m.name))?.name ?? DEFAULT_MODEL;
+  const model = pickDefaultModel(models);
+  if (!model) {
+    console.log('No supported model is available to this key.');
+    process.exit(1);
+  }
   console.log('using model:', model);
 
   const result = await ocrPage(pages[0], {

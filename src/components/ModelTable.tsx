@@ -3,6 +3,7 @@ import {
   estimateCost,
   formatCostRange,
   modelPricing,
+  catalogEntry,
   type GeminiModel,
   type MediaResolution,
 } from '../core';
@@ -44,7 +45,14 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
         : pricing
           ? pricing.input
           : Number.POSITIVE_INFINITY;
-    return { name: model.name, pricing, est, sortKey };
+    return {
+      name: model.name,
+      displayName: model.displayName,
+      paidOnly: catalogEntry(model.name)?.paidOnly ?? false,
+      pricing,
+      est,
+      sortKey,
+    };
   });
 
   rows.sort((a, b) => {
@@ -117,7 +125,13 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
                     aria-label={`Select ${row.name}`}
                   />
                 </td>
-                <td className="model-id">{row.name}</td>
+                <td className="model-id">
+                  <span className="model-primary">{row.displayName ?? row.name}</span>
+                  {row.paidOnly && <span className="model-badge">Paid key</span>}
+                  {row.displayName && row.displayName !== row.name && (
+                    <small className="model-name-id">{row.name}</small>
+                  )}
+                </td>
                 <td className="num">{row.pricing ? row.pricing.input.toFixed(2) : '—'}</td>
                 <td className="num">{row.pricing ? row.pricing.output.toFixed(2) : '—'}</td>
                 <td className="num">{cost}</td>

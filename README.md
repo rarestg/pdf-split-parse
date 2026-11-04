@@ -7,7 +7,7 @@ Vite + React wraps a framework-agnostic OCR core that merges the per-page result
 ## Features
 
 - **Super-parallel OCR.** Bounded worker pool, default 4 pages at once, configurable up to 128, built for paid keys with real rate limits, so a whole book can finish in well under a minute.
-- **BYO key model picker.** **Test** validates the key, lists usable Gemini models, and shows them in a cost-sorted table.
+- **BYO key model picker.** **Test** validates the key with `models.list`, then checks the supported catalog with non-billable `countTokens` probes and shows available models in a cost-sorted table.
 - **Cost tracking.** Up-front estimate, measured actual cost from API token counts, per-model retry breakdown, and localStorage lifetime aggregate tally.
 - **No blind retries.** Only 429 rate limits and 503 overloads auto-retry, with back-off and server `RetryInfo`; timeouts, truncation, and other errors surface fast.
 - **Targeted Re-OCR.** Failed and suspect pages can be rerun by page spec (`14, 15, 19-22`) on another model/detail, then merged back by page number.
@@ -28,7 +28,7 @@ Scripts:
 npm run build      # tsc --noEmit && vite build -> dist/
 npm run preview
 npm run typecheck
-npm run smoke      # core checks; live Gemini call if _local/.env has GEMINI_API_KEY
+npm run smoke      # core checks; live Gemini call if GEMINI_API_KEY is set or _local/.env has it
 npm run assets:og  # re-rasterize og.png + icon PNGs from their SVG sources
 npm run deploy     # build, then wrangler deploy to Cloudflare
 ```
@@ -39,7 +39,7 @@ Requires Node 20+ from `package.json`. `.nvmrc` pins Node 22 for local and CI bu
 
 Create a Gemini API key at <https://aistudio.google.com/apikey>, paste it into the app, then click **Test**. The key stays in memory unless **Remember in this browser** is checked, which stores it in `localStorage` so it survives closing the tab or browser.
 
-For public deploys, restrict the key by HTTP referrer. Bring a paid key: free-tier keys are rate-limited (which throttles the whole point: parallelism) and their content may be human-reviewed by Google, while paid Gemini API content is not used to improve Google's products.
+For public deploys, restrict the key by HTTP referrer. Bring a paid key: free-tier keys are rate-limited (which throttles the whole point: parallelism) and some catalog models require paid access. Free-tier content may be human-reviewed by Google, while paid Gemini API content is not used to improve Google's products.
 
 ## How It Works
 
@@ -63,18 +63,19 @@ PDF bytes
 
 The parsed `PDFDocument` is reused across the initial run and manual retries. Extraction is serialized so `pdf-lib` is not run concurrently on the shared document; Gemini requests are the parallel part, with only about `concurrency` single-page PDFs resident at once.
 
-`src/core/gemini.ts` keeps OCR deterministic: temperature 0, explicit `maxOutputTokens`, and minimal thinking config per supported model family. `src/core/anomaly.ts` flags long repeated-character runs as suspect output.
+`src/core/gemini.ts` keeps OCR deterministic: temperature 0, explicit `maxOutputTokens`, and catalog-specific thinking config. `src/core/models.ts` is the source of truth for supported model names, pricing, and thinking settings; its prices are tiered by date. `src/core/anomaly.ts` flags long repeated-character runs as suspect output.
 
 `useOcrJob` is the UI state machine: run/retry/cancel/reset, merged results, cumulative per-model token ledger, live in-flight/back-off stats, and retry merge-by-page. Core-to-UI communication is `onProgress` per completed page and `onStats` for live activity counts.
 
 ## Project Map
 
-- `src/core/types.ts` - shared types and defaults.
+- `src/core/types.ts` - shared types and runtime defaults.
+- `src/core/models.ts` - supported-model catalog, price tiers, thinking settings, and default model.
 - `src/core/splitPdf.ts` - PDF load/extract, page ranges/specs, PDF error messages.
 - `src/core/gemini.ts` - Gemini REST, OCR retry classification, model listing, key test, generation config.
 - `src/core/pipeline.ts` - `runOcrPipeline`, bounded workers, lazy extraction callbacks.
 - `src/core/markdown.ts` - page results to final Markdown, errors, warnings, retry notes.
-- `src/core/cost.ts` - pricing table, estimates, actual costs, formatting.
+- `src/core/cost.ts` - estimates, actual costs, and formatting using catalog pricing.
 - `src/core/anomaly.ts` - suspect repeated-character detection.
 - `src/core/debug.ts` - opt-in console logging.
 - `src/core/index.ts` - public core exports.
@@ -101,7 +102,7 @@ import { runOcrPipeline, DEFAULT_PROMPT } from './src/core';
 
 const result = await runOcrPipeline(pdfBytes, 'document.pdf', {
   apiKey: geminiApiKey,
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.5-flash-lite',
   prompt: DEFAULT_PROMPT,
   mediaResolution: 'medium',
   concurrency: 4,

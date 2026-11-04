@@ -1,5 +1,5 @@
 import { type MediaResolution, type PageInput, type PageResult } from './types';
-import { modelPricing } from './cost';
+import { catalogEntry, currentPrice, DEFAULT_MODEL, MODEL_CATALOG } from './models';
 import { debugLog, debugTime } from './debug';
 import { stripOuterMarkdownFence } from './markdown';
 
@@ -54,33 +54,15 @@ function normalizeModel(model: string): string {
   return model.trim().replace(/^models\//, '');
 }
 
-/**
- * Minimal-thinking generationConfig for a model, or undefined for models we don't tune.
- * Thinking can't always be fully disabled (2.5-pro / 3.x), so we use each family's floor:
- *  - 2.5 flash & flash-lite: thinkingBudget 0 (off)
- *  - 2.5-pro: thinkingBudget 128 (its minimum)
- *  - 3.x: thinkingLevel "minimal" (or "low" for 3.1-pro, which has no "minimal")
- * Verified live that all of these are accepted (HTTP 200). Unknown models get nothing,
- * since sending thinkingConfig to a non-thinking model errors.
- */
-function thinkingConfigFor(model: string): Record<string, unknown> | undefined {
-  const id = model.toLowerCase();
-  if (/gemini-3/.test(id)) return { thinkingLevel: /3\.1-pro/.test(id) ? 'low' : 'minimal' };
-  if (/gemini-2\.5-pro/.test(id)) return { thinkingBudget: 128 };
-  if (/gemini-2\.5-flash/.test(id)) return { thinkingBudget: 0 };
-  return undefined;
-}
-
 /** List models the key can use with generateContent (follows pagination). */
 export async function listModels(apiKey: string, signal?: AbortSignal): Promise<GeminiModel[]> {
   const models: GeminiModel[] = [];
   let pageToken: string | undefined;
   do {
-    const url = new URL(`${API_BASE}/models`);
-    url.searchParams.set('pageSize', '1000');
+    const url = new URL(`${API_BASE}/models?pageSize=1000&key=${encodeURIComponent(apiKey)}`);
     if (pageToken) url.searchParams.set('pageToken', pageToken);
 
-    const response = await fetch(url, { headers: { 'x-goog-api-key': apiKey }, signal });
+    const response = await fetch(url, { signal });
     if (!response.ok) {
       const { status, apiStatus, message, retryAfterMs } = await readHttpError(response);
       throw new GeminiHttpError(status, apiStatus, message, retryAfterMs);
@@ -99,69 +81,13 @@ export async function listModels(apiKey: string, signal?: AbortSignal): Promise<
   return models;
 }
 
-/**
- * Trim Google's full model list down to the Gemini *text* models worth showing.
- * models.list returns ~37 generateContent-capable entries cluttered with other
- * families and modalities; this keeps just the usable OCR candidates:
- *  - drop non-Gemini families (gemma / lyria / nano-banana / antigravity / deep-research),
- *  - drop non-text modalities (image / tts / audio / embedding / robotics / computer-use / customtools / omni realtime),
- *  - drop legacy generations (1.x, 2.0),
- *  - drop version-pinned dupes (-001) and moving "-latest" aliases,
- *  - collapse a "<base>-preview" when its stable "<base>" is also listed.
- */
-export function curateModels(models: GeminiModel[]): GeminiModel[] {
-  const isGeminiText = (id: string): boolean =>
-    /^gemini-/i.test(id) &&
-    !/-(image|tts|audio|embedding)\b|nano-banana|robotics|computer-use|customtools|omni/i.test(id);
-  const isLegacy = (id: string): boolean => /gemini-(1\.0|1\.5|2\.0)\b/i.test(id);
-  const isAliasOrPinned = (id: string): boolean => /-latest$|-\d{3}$/i.test(id);
-  // Models that models.list still returns but that are retired and 404 on use.
-  const isRetired = (id: string): boolean => /^gemini-3-pro-preview$/i.test(id); // shut down 2026-03-09
-
-  const kept = models.filter(
-    (model) =>
-      isGeminiText(model.name) &&
-      !isLegacy(model.name) &&
-      !isAliasOrPinned(model.name) &&
-      !isRetired(model.name),
-  );
-  // Collapse "<base>-preview" when a stable "<base>" is present (keep the stable one).
-  const baseOf = (id: string): string => id.replace(/-preview.*$/i, '');
-  const stableBases = new Set(kept.filter((model) => !/-preview/i.test(model.name)).map((model) => model.name));
-  return kept.filter((model) => !/-preview/i.test(model.name) || !stableBases.has(baseOf(model.name)));
-}
-
-/**
- * Rank models cheapest/fastest-first for a quick test or default selection:
- * prefer names with both "flash" and "lite", then "flash", then anything;
- * sink deprecated generations (Google still LISTS models that 404 on use) and
- * de-prioritize preview/exp and non-text (image/tts/audio) variants.
- */
-export function rankModels(models: GeminiModel[]): GeminiModel[] {
-  const tier = (name: string): number => {
-    const n = name.toLowerCase();
-    if (n.includes('flash') && n.includes('lite')) return 0;
-    if (n.includes('flash')) return 1;
-    return 2;
-  };
-  // Legacy families that are deprecated for generateContent — keep them out of
-  // the cheapest slot even though models.list still returns them.
-  const deprecated = (name: string): number =>
-    /gemini-(1\.0|1\.5|2\.0)|gemini-pro-vision|^models\/gemini-pro$|^gemini-pro$/i.test(name) ? 1 : 0;
-  const penalty = (name: string): number =>
-    /preview|exp|image|tts|audio|live|native|thinking/i.test(name) ? 1 : 0;
-  return [...models].sort(
-    (a, b) =>
-      tier(a.name) - tier(b.name) ||
-      deprecated(a.name) - deprecated(b.name) ||
-      penalty(a.name) - penalty(b.name) ||
-      a.name.localeCompare(b.name),
-  );
-}
-
-/** The single cheapest/fastest usable model, or undefined if the list is empty. */
-export function pickCheapestModel(models: GeminiModel[]): string | undefined {
-  return rankModels(models)[0]?.name;
+/** Choose the preferred model when available, otherwise the lowest-priced listed model. */
+export function pickDefaultModel(models: GeminiModel[]): string | undefined {
+  if (models.some((model) => normalizeModel(model.name) === DEFAULT_MODEL)) return DEFAULT_MODEL;
+  return models
+    .map((model) => ({ name: normalizeModel(model.name), price: currentPrice(model.name) }))
+    .filter((model): model is { name: string; price: { input: number; output: number } } => model.price !== null)
+    .sort((a, b) => a.price.input + a.price.output - (b.price.input + b.price.output))[0]?.name;
 }
 
 /**
@@ -172,105 +98,65 @@ export function pickCheapestModel(models: GeminiModel[]): string | undefined {
 export function pickSmarterModel(models: GeminiModel[], current: string): string {
   const cur = normalizeModel(current);
   const priceOf = (name: string): number | undefined => {
-    const pricing = modelPricing(name);
+    const pricing = currentPrice(name);
     return pricing ? pricing.input + pricing.output : undefined;
   };
-  const currentPrice = priceOf(cur);
-  if (currentPrice === undefined) return cur; // can't rank an unpriced model — leave the default as-is
+  const currentRate = priceOf(cur);
+  if (currentRate === undefined) return cur; // can't rank an unpriced model — leave the default as-is
   const next = models
     .map((model) => ({ name: model.name, price: priceOf(model.name) }))
-    .filter((m): m is { name: string; price: number } => m.price !== undefined && m.price > currentPrice)
+    .filter((m): m is { name: string; price: number } => m.price !== undefined && m.price > currentRate)
     .sort((a, b) => a.price - b.price)[0];
   return next?.name ?? cur;
 }
 
-export interface KeyCheckResult {
-  models: GeminiModel[];
-  testedModel: string;
-  elapsedMs: number;
-  reply: string;
-  /** True if a live generateContent round-trip succeeded. */
-  tested: boolean;
-  /** Present when `tested` is false: why the live test didn't complete (the key is still valid). */
-  note?: string;
-}
-
-/**
- * Validate a key and load its models in one shot: list the key's models (proves
- * the key works, no inference cost), then do one tiny generateContent as an
- * end-to-end round-trip. Throws GeminiFatalError only on a genuinely bad key.
- *
- * Google's models.list returns models that are deprecated for generateContent
- * (e.g. gemini-2.0-flash-lite -> 404 "no longer available"), so we try the
- * cheapest usable models in order and skip any that 404. If none can run a live
- * test, we still return the loaded models with `tested: false` — the key is
- * valid and the dropdown should populate regardless.
- */
-export async function checkApiKey(apiKey: string, signal?: AbortSignal): Promise<KeyCheckResult> {
-  let models: GeminiModel[];
+/** Validate a key and find models available for this key without running inference. */
+export async function checkApiKey(
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<{ models: GeminiModel[]; elapsedMs: number }> {
+  const startedAt = performance.now();
+  let available: GeminiModel[];
   try {
-    const all = await listModels(apiKey, signal);
-    const curated = curateModels(all);
-    models = curated.length ? curated : all; // never strand the user with an empty list
+    available = await listModels(apiKey, signal);
   } catch (error) {
-    // A failed list means the key itself is bad/unauthorized.
     if (error instanceof GeminiHttpError) throw new GeminiFatalError(fatalMessage(error));
     throw error;
   }
-
-  const candidates = rankModels(models)
-    .slice(0, 4)
-    .map((model) => model.name);
-  let lastUnavailable = '';
-  for (const model of candidates) {
-    if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
-    const startedAt = performance.now();
-    try {
-      const reply = await quickGenerate(apiKey, model, 'Reply with the single word: OK', signal);
-      return { models, testedModel: model, elapsedMs: performance.now() - startedAt, reply: reply.trim().slice(0, 40), tested: true };
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      // listModels already proved the key is valid, so a failure here is model-scoped,
-      // not key-scoped: a 404/NOT_FOUND or a per-model 403/PERMISSION_DENIED just means
-      // this model is unusable for this key — skip to the next cheapest candidate.
-      if (error instanceof GeminiHttpError && isModelUnavailable(error)) {
-        lastUnavailable = error.message;
-        continue;
-      }
-      // Transient (429/5xx/network): the key is valid and models loaded; skip the live test.
-      return {
-        models,
-        testedModel: model,
-        elapsedMs: 0,
-        reply: '',
-        tested: false,
-        note: `Key valid · ${models.length} models loaded. Couldn't run a live test: ${errorToString(error)}`,
-      };
-    }
-  }
-
-  return {
-    models,
-    testedModel: candidates[0] ?? '',
-    elapsedMs: 0,
-    reply: '',
-    tested: false,
-    note: `Key valid · ${models.length} models loaded. No test-eligible model responded${lastUnavailable ? ` (last: ${lastUnavailable})` : ''} — pick one from the list.`,
-  };
+  const availableIds = new Set(available.map((model) => normalizeModel(model.name)));
+  const candidates = MODEL_CATALOG.filter((entry) => availableIds.has(entry.id));
+  const probed = await Promise.all(
+    candidates.map(async (entry) => (await probeModel(apiKey, entry.id, signal) ? entry : null)),
+  );
+  const models = probed
+    .filter((entry): entry is (typeof MODEL_CATALOG)[number] => entry !== null)
+    .map((entry) => ({ name: entry.id, displayName: entry.label }));
+  return { models, elapsedMs: performance.now() - startedAt };
 }
 
-/** A minimal text generateContent call (used by the key test). */
-async function quickGenerate(apiKey: string, model: string, text: string, signal?: AbortSignal): Promise<string> {
-  const id = normalizeModel(model);
-  const data = await postJson(
-    `${API_BASE}/models/${encodeURIComponent(id)}:generateContent`,
-    apiKey,
-    JSON.stringify({ contents: [{ parts: [{ text }] }], generationConfig: { temperature: 0, maxOutputTokens: 32 } }),
-    30_000,
-    signal,
-  );
-  const payload = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  return (payload?.candidates?.[0]?.content?.parts ?? []).map((part) => part?.text ?? '').join('');
+async function probeModel(apiKey: string, model: string, externalSignal?: AbortSignal): Promise<boolean> {
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) controller.abort(externalSignal.reason);
+  else externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    // Query-key + text/plain keeps these probes simple CORS requests without preflight.
+    const url = `${API_BASE}/models/${encodeURIComponent(model)}:countTokens?key=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '{"contents":[{"parts":[{"text":"hi"}]}]}',
+      signal: controller.signal,
+    });
+    return response.status !== 404 && response.status !== 403;
+  } catch {
+    if (externalSignal?.aborted) throw externalSignal.reason ?? new DOMException('Aborted', 'AbortError');
+    return true;
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', onExternalAbort);
+  }
 }
 
 export interface OcrPageParams {
@@ -308,10 +194,7 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     mediaResolution: MEDIA_RESOLUTION_MAP[params.mediaResolution],
   };
-  // Thinking tokens share the output budget and bill as output, so minimize them for
-  // deterministic OCR (less cost/latency, no thinking-induced MAX_TOKENS). The knob
-  // differs by family; every model we offer accepts a thinkingConfig (verified live).
-  const thinking = thinkingConfigFor(model);
+  const thinking = catalogEntry(model)?.thinking;
   if (thinking) generationConfig.thinkingConfig = thinking;
 
   const doneB64 = debugTime(`base64 p${page.pageNumber} (${page.pdfBytes.length}b)`);
@@ -341,6 +224,9 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
     } catch (error) {
       params.onActivity?.('request', -1); // the request settled (failed)
       if (params.signal?.aborted) throw error; // user cancelled — abort the whole job
+      if (error instanceof GeminiHttpError && error.status === 429 && /limit:\s*0/i.test(error.message)) {
+        throw new GeminiFatalError(`${model} isn't available on the free tier. Use a paid key or pick another model.`);
+      }
       const kind = classify(error);
       if (kind === 'fatal') throw new GeminiFatalError(fatalMessage(error));
       if (kind === 'fail') {
@@ -491,12 +377,6 @@ function httpIsFatal(error: GeminiHttpError): boolean {
  * or not permitted). Only meaningful AFTER listModels has proven the key valid,
  * so a 403/PERMISSION_DENIED here is model-scoped, not a bad key.
  */
-function isModelUnavailable(error: GeminiHttpError): boolean {
-  if (error.status === 404 || error.status === 403) return true;
-  if (error.apiStatus === 'NOT_FOUND' || error.apiStatus === 'PERMISSION_DENIED') return true;
-  return /no longer available|not found|is not supported|does not (exist|support)|unsupported model/i.test(error.message);
-}
-
 function fatalMessage(error: unknown): string {
   if (error instanceof GeminiHttpError) {
     if (
@@ -576,7 +456,9 @@ async function readHttpError(
   } catch {
     /* body unavailable */
   }
-  detail = detail.replace(/\s+/g, ' ').trim().slice(0, 300);
+  detail = detail.replace(/\s+/g, ' ').trim();
+  const hasZeroLimit = /limit:\s*0/i.test(detail);
+  if (detail.length > 300) detail = `${detail.slice(0, 300)}${hasZeroLimit ? ' … limit: 0' : ''}`;
   const message = `HTTP ${response.status} ${response.statusText}`.trim() + (detail ? `: ${detail}` : '');
   return { status: response.status, apiStatus, message, retryAfterMs };
 }

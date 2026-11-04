@@ -66,7 +66,6 @@ export interface OcrPipelineResult {
   model: string;
 }
 
-export const DEFAULT_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_CONCURRENCY = 4;
 /** Back-off retries for a 429 rate-limit / 503 overload only; every other failure fails fast and is surfaced for a manual retry. */
 export const DEFAULT_RETRIES = 5;

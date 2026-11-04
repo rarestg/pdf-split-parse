@@ -3,11 +3,11 @@ import { detectRepetition } from './anomaly';
 import { debugLog } from './debug';
 import { GeminiFatalError, ocrPage } from './gemini';
 import { buildOutputMarkdown } from './markdown';
+import { DEFAULT_MODEL } from './models';
 import { extractPage, loadPdf, validatePageRange } from './splitPdf';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_MEDIA_RESOLUTION,
-  DEFAULT_MODEL,
   DEFAULT_PROMPT,
   DEFAULT_RETRIES,
   DEFAULT_TIMEOUT_MS,
