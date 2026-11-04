@@ -70,10 +70,10 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
               <span className="sr-only">Select</span>
             </th>
             <th scope="col">Model</th>
-            <th scope="col" className="num">
+            <th scope="col" className="num price-col">
               $/1M in
             </th>
-            <th scope="col" className="num">
+            <th scope="col" className="num price-col">
               $/1M out
             </th>
             <th scope="col" className="num" aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}>
@@ -118,8 +118,8 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
                   />
                 </td>
                 <td className="model-id">{row.name}</td>
-                <td className="num">{row.pricing ? row.pricing.input.toFixed(2) : '—'}</td>
-                <td className="num">{row.pricing ? row.pricing.output.toFixed(2) : '—'}</td>
+                <td className="num price-col">{row.pricing ? row.pricing.input.toFixed(2) : '—'}</td>
+                <td className="num price-col">{row.pricing ? row.pricing.output.toFixed(2) : '—'}</td>
                 <td className="num">{cost}</td>
                 <td className="dot-col">
                   <span className="cost-dot" style={{ background: dotColor }} aria-hidden="true" />
@@ -133,7 +133,8 @@ export function ModelTable({ models, selected, onSelect, pages, mediaResolution,
         {pages > 0
           ? `Estimate for ${pages} selected page${pages === 1 ? '' : 's'} at ${mediaResolution} detail`
           : 'Load a PDF to estimate cost'}
-        {' · prices per 1M tokens · verify on '}
+        <span className="price-col"> · prices per 1M tokens</span>
+        {' · verify on '}
         <a href={PRICING_URL} target="_blank" rel="noreferrer">
           Google&rsquo;s pricing
         </a>

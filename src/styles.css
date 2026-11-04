@@ -27,8 +27,10 @@
   /* Kept faint so the 12px warn chip text clears WCAG AA on the tinted fill. */
   --warn-weak: rgba(180, 83, 9, 0.07);
   --warn-border: rgba(180, 83, 9, 0.3);
-  --shadow: rgba(15, 23, 42, 0.18);
   --radius: 10px;
+  /* One height for inputs, selects, buttons, and tabs, so controls in a row line up. */
+  --control-h: 38px;
+  accent-color: var(--accent-strong);
   color-scheme: light;
 }
 
@@ -58,7 +60,6 @@
   --ok-border: rgba(95, 208, 160, 0.3);
   --warn-weak: rgba(230, 180, 80, 0.12);
   --warn-border: rgba(230, 180, 80, 0.3);
-  --shadow: rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
 
@@ -76,6 +77,18 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* One keyboard focus ring for every control. Text fields draw their own below. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The UA gray is about 4.1:1 on the sunken field; --muted clears AA in both themes. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 .app {
@@ -180,8 +193,30 @@ body {
   box-shadow: 0 0 0 3px var(--accent-border);
 }
 
+.text-input {
+  /* min-height, not height, so enlarged text can grow the field instead of clipping. */
+  min-height: var(--control-h);
+  padding-block: 8px;
+}
+
+/* Author colors cancel the UA's greying, so a running job left these looking editable. */
+.text-input:disabled,
+.prompt-area:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Shrinks so the "/ 120" total stays on one line in the narrow Pages column. */
 .text-input.narrow {
-  width: 72px;
+  flex: 0 1 72px;
+  width: auto;
+  min-width: 52px;
+  padding-inline: 8px;
+}
+
+.key-row > .muted {
+  flex: none;
+  white-space: nowrap;
 }
 
 /* Monospace the API key so it's easy to read/verify when revealed. */
@@ -436,12 +471,14 @@ body {
 .cost-by-model {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
-  gap: 4px 18px;
+  /* Cell padding, not column-gap, so the header and total rules run unbroken. */
+  gap: 4px 0;
   font-size: 13px;
   color: var(--muted);
 }
 
 .cost-by-model .cbm-num {
+  padding-left: 18px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -497,7 +534,7 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 
-.dropzone:hover,
+.dropzone:hover:not(.disabled),
 .dropzone.drag {
   border-color: var(--accent);
   background: var(--accent-weak);
@@ -510,6 +547,8 @@ body {
 
 .dropzone p {
   margin: 0;
+  /* A long filename with no spaces would otherwise widen the whole page on phones. */
+  overflow-wrap: anywhere;
 }
 
 .muted {
@@ -527,13 +566,13 @@ body {
 
 .run-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 8px;
+  text-align: center;
 }
 
-/* Rising-sun CTA burst: a one-shot decorative sunburst behind the page, fired
+/* CTA burst: a one-shot decorative sunburst behind the page, fired
    from the centered Convert button. Fixed + clipped to the viewport (never adds
    scrollbars) and painted behind all content (z-index:-1, above the body-
    propagated page background) so it frames the page without washing over panel
@@ -738,9 +777,10 @@ button {
 .primary-btn {
   background: var(--accent-strong);
   color: white;
-  border: none;
-  border-radius: 8px;
   /* Match .ghost-btn geometry so paired buttons (Test/Show, Download/Copy) are the same size. */
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: var(--control-h);
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 600;
@@ -766,6 +806,7 @@ button {
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
+  min-height: var(--control-h);
   padding: 8px 12px;
   font-size: 14px;
 }
@@ -790,6 +831,21 @@ button {
 
 .link-btn:hover {
   color: var(--text);
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.disclosure svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+
+.disclosure[aria-expanded='true'] svg {
+  transform: rotate(90deg);
 }
 
 .prompt-area {
@@ -907,13 +963,9 @@ select.text-input {
   cursor: not-allowed;
 }
 
-/* "Why it's locked" popover: always visible in normal flow under the select, with an
-   upward caret pointing at it. JS-free and hover-free by design — a disabled <select>
-   fires neither :hover nor title and is out of the tab order, so the reason lives in
-   DOM reading order. Opaque surface so the caret never double-tints the overlap seam. */
+/* Why there's no model picker yet: a plain tinted note in the panel's flow. */
 .lock-note {
-  position: relative;
-  margin: 4px 0 0;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -924,20 +976,6 @@ select.text-input {
   background: var(--lock-bg);
   border: 1px solid var(--accent-border);
   border-radius: 8px;
-  box-shadow: 0 6px 18px var(--shadow);
-}
-
-.lock-note::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: 14px;
-  width: 9px;
-  height: 9px;
-  background: var(--lock-bg);
-  border-left: 1px solid var(--accent-border);
-  border-top: 1px solid var(--accent-border);
-  transform: rotate(45deg);
 }
 
 .lock-note strong {
@@ -962,7 +1000,10 @@ select.text-input {
 }
 
 /* Sortable model picker (replaces the model dropdown after a successful Test). */
+/* position: relative keeps the absolutely positioned .sr-only headers inside the
+   scroller; without it they widen the whole page on phones. */
 .model-table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -1091,8 +1132,13 @@ select.text-input {
   border: 1px solid var(--panel-border);
   color: var(--muted);
   border-radius: 8px;
+  min-height: var(--control-h);
   padding: 6px 12px;
   font-size: 14px;
+}
+
+.tab:hover:not(.active) {
+  color: var(--text);
 }
 
 .tab.active {
@@ -1224,11 +1270,7 @@ select.text-input {
 
 .retry-controls .primary-btn {
   white-space: nowrap;
-  /* Match the inputs' box height (font + padding + border) so the button lines up with the selects
-     to its left instead of sitting low when their bottoms are aligned. */
-  padding: 9px 16px;
-  font-size: 14px;
-  border: 1px solid transparent;
+  padding-inline: 16px;
 }
 
 .retry-hint {
@@ -1266,4 +1308,25 @@ select.text-input {
 .reset-pill:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+/* Phones: the job estimate is the deciding number, so the raw per-token prices give way
+   to it instead of pushing it behind a sideways scroll. */
+@media (max-width: 560px) {
+  .price-col {
+    display: none;
+  }
+
+  .model-table th,
+  .model-table td {
+    padding-inline: 6px;
+  }
+}
+
+/* iOS zooms the page when a focused field's text is under 16px. */
+@media (pointer: coarse) {
+  .text-input,
+  .prompt-area {
+    font-size: 16px;
+  }
 }
