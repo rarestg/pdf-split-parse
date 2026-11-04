@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import type { PDFDocument } from 'pdf-lib';
 import { debugTime } from './debug';
 import type { PageInput } from './types';
 
@@ -14,6 +14,9 @@ const MALFORMED_PDF_MESSAGE =
 
 /** Load a PDF once; reuse it to extract pages lazily (bounds memory). */
 export async function loadPdf(pdfBytes: Uint8Array): Promise<PDFDocument> {
+  // Loaded on demand because pdf-lib is over half of the app's JavaScript. Outside the try below,
+  // so a failed download isn't reported as a damaged PDF.
+  const { PDFDocument } = await import('pdf-lib');
   // pdf-lib can't decrypt and is a strict parser, so its raw failures (e.g.
   // "Expected instance of PDFDict, but got undefined") are meaningless to users.
   let doc: PDFDocument;
@@ -105,6 +108,7 @@ export function parsePageSpec(spec: string, pageCount: number): ParsedPageSpec {
 
 /** Extract a single page (1-based) into a standalone single-page PDF. */
 export async function extractPage(source: PDFDocument, pageNumber: number): Promise<Uint8Array> {
+  const { PDFDocument } = await import('pdf-lib');
   const done = debugTime(`extractPage ${pageNumber}`);
   const out = await PDFDocument.create();
   const [copied] = await out.copyPages(source, [pageNumber - 1]);
