@@ -57,11 +57,7 @@ export function App() {
     return 'system';
   });
   const [colorScheme, setColorScheme] = useState<ColorScheme>(() =>
-    theme === 'system'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'
-      : theme,
+    theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme,
   );
 
   // Apply the theme to <html> (matching the pre-paint script), persist the choice,
@@ -283,9 +279,9 @@ export function App() {
           PDF <span className="arrow">→</span> Split <span className="arrow">→</span> Markdown
         </h1>
         <p className="tagline">
-          Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser to
-          Gemini. A whole book can finish in under a minute, and your key and documents only ever go to
-          Gemini&rsquo;s GPUs, never to us.
+          Split a PDF and OCR every page in parallel (up to 128 at once!), straight from your browser to Gemini. A whole
+          book can finish in under a minute, and your key and documents only ever go to Gemini&rsquo;s GPUs, never to
+          us.
         </p>
       </header>
 
@@ -328,8 +324,8 @@ export function App() {
 
       {largeJob && !isRunning && (
         <p className="hint">
-          Large job: {selectedPages} pages, one Gemini request each. Very large PDFs use significant
-          browser memory. If the tab struggles, lower the parallel-pages count or split the range.
+          Large job: {selectedPages} pages, one Gemini request each. Very large PDFs use significant browser memory. If
+          the tab struggles, lower the parallel-pages count or split the range.
         </p>
       )}
 
@@ -402,9 +398,9 @@ export function App() {
 
       <footer className="app-footer">
         <p>
-          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your
-          documents and key never touch it; all that persists between visits is a cost tally (no documents
-          or filenames) and, if you opt in, your key &mdash; both stored only on this device.
+          Pages go straight from your browser to Google&rsquo;s Gemini API. This site has no server, so your documents
+          and key never touch it; all that persists between visits is a cost tally (no documents or filenames) and, if
+          you opt in, your key &mdash; both stored only on this device.
         </p>
         <p className="footer-credit">
           Built with care by{' '}

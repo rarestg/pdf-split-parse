@@ -25,15 +25,18 @@ Open `http://localhost:5173`.
 Scripts:
 
 ```bash
-npm run build      # tsc --noEmit && vite build -> dist/
+npm run build      # tsc -b && vite build -> dist/
 npm run preview
+npm run lint       # Biome lint and format checks
+npm run format     # apply Biome fixes and formatting
 npm run typecheck
+npm test           # offline checks of how page failures are handled
 npm run smoke      # core checks; live Gemini call if GEMINI_API_KEY is set or _local/.env has it
 npm run assets:og  # re-rasterize og.png + icon PNGs from their SVG sources
 npm run deploy     # build, then wrangler deploy to Cloudflare
 ```
 
-Requires Node 20+ from `package.json`. `.nvmrc` pins Node 22 for local and CI builds.
+Requires Node 22.12+ from `package.json`. `.nvmrc` pins Node 22 for local and CI builds.
 
 ## Bring Your Own Key
 

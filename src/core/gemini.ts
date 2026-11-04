@@ -1,4 +1,4 @@
-import { type MediaResolution, type PageInput, type PageResult } from './types';
+import type { MediaResolution, PageInput, PageResult } from './types';
 import { catalogEntry, currentPrice, DEFAULT_MODEL, MODEL_CATALOG } from './models';
 import { debugLog, debugTime } from './debug';
 import { stripOuterMarkdownFence } from './markdown';
@@ -122,7 +122,7 @@ export async function checkApiKey(apiKey: string, signal?: AbortSignal): Promise
   const availableIds = new Set(available.map((model) => normalizeModel(model.name)));
   const candidates = MODEL_CATALOG.filter((entry) => availableIds.has(entry.id));
   const probed = await Promise.all(
-    candidates.map(async (entry) => (await probeModel(apiKey, entry.id, signal) ? entry : null)),
+    candidates.map(async (entry) => ((await probeModel(apiKey, entry.id, signal)) ? entry : null)),
   );
   return probed
     .filter((entry): entry is (typeof MODEL_CATALOG)[number] => entry !== null)
@@ -185,10 +185,7 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
   const body = JSON.stringify({
     contents: [
       {
-        parts: [
-          { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
-          { text: params.prompt },
-        ],
+        parts: [{ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }, { text: params.prompt }],
       },
     ],
     generationConfig,
@@ -219,13 +216,17 @@ export async function ocrPage(page: PageInput, params: OcrPageParams): Promise<P
       lastError = errorToString(error);
       if (attempt > params.retries) {
         const tries = `${params.retries} ${params.retries === 1 ? 'retry' : 'retries'}`;
-        debugLog(`${tag} ✗ gave up after ${tries} of back-off (${((performance.now() - pageStartedAt) / 1000).toFixed(1)}s): ${lastError}`);
+        debugLog(
+          `${tag} ✗ gave up after ${tries} of back-off (${((performance.now() - pageStartedAt) / 1000).toFixed(1)}s): ${lastError}`,
+        );
         const note = `${lastError} — still failing after ${tries} of back-off; wait and retry, or lower "Parallel pages".`;
         return failed(page.pageNumber, attempt, performance.now() - startedAt, note, model);
       }
       const ms = backoffMs(error, attempt);
       const httpDesc =
-        error instanceof GeminiHttpError ? `${error.status}${error.apiStatus ? ` ${error.apiStatus}` : ''}` : errorToString(error);
+        error instanceof GeminiHttpError
+          ? `${error.status}${error.apiStatus ? ` ${error.apiStatus}` : ''}`
+          : errorToString(error);
       debugLog(`${tag} ⏳ try${attempt} ${httpDesc} → backoff ${(ms / 1000).toFixed(1)}s`);
       params.onActivity?.('retry', 1);
       try {
@@ -312,7 +313,10 @@ function interpretResponse(data: unknown): string {
   const parts = candidate.content?.parts;
   // Skip thought parts (only present if thinking summaries are enabled); join the rest.
   return Array.isArray(parts)
-    ? parts.filter((part) => part?.thought !== true).map((part) => part?.text ?? '').join('')
+    ? parts
+        .filter((part) => part?.thought !== true)
+        .map((part) => part?.text ?? '')
+        .join('')
     : '';
 }
 
@@ -353,7 +357,10 @@ function backoffMs(error: unknown, attempt: number): number {
 function httpIsFatal(error: GeminiHttpError): boolean {
   if (error.status === 401 || error.status === 403 || error.status === 404) return true;
   if (error.apiStatus === 'UNAUTHENTICATED' || error.apiStatus === 'PERMISSION_DENIED') return true;
-  if (error.status === 400 && /api[_ ]?key[_ ]?(not valid|invalid)|api_key_invalid|unauthenticat|permission|\bmodel\b/i.test(error.message)) {
+  if (
+    error.status === 400 &&
+    /api[_ ]?key[_ ]?(not valid|invalid)|api_key_invalid|unauthenticat|permission|\bmodel\b/i.test(error.message)
+  ) {
     return true;
   }
   return false;
@@ -391,10 +398,7 @@ async function postJson(
     if (externalSignal.aborted) controller.abort(externalSignal.reason);
     else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
   }
-  const timer = setTimeout(
-    () => controller.abort(new DOMException('Request timed out', 'TimeoutError')),
-    timeoutMs,
-  );
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeoutMs);
   try {
     const response = await fetch(url, {
       method: 'POST',

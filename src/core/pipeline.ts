@@ -100,7 +100,16 @@ export async function runOcrPipeline(
         if (internal.signal.aborted) throw internal.signal.reason ?? new DOMException('Aborted', 'AbortError');
         const result = await ocrPage(
           { pageNumber, pdfBytes: pdf },
-          { apiKey: options.apiKey, model, prompt, mediaResolution, retries, timeoutMs, signal: internal.signal, onActivity },
+          {
+            apiKey: options.apiKey,
+            model,
+            prompt,
+            mediaResolution,
+            retries,
+            timeoutMs,
+            signal: internal.signal,
+            onActivity,
+          },
         );
         // Flag a degenerate "success" (a model loop) as a soft warning on the page itself, then
         // hand the SAME annotated result to onProgress so the warning survives live/cancelled merges.

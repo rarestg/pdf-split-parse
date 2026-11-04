@@ -58,12 +58,7 @@ export function RetryPanel({
   const expanded = flaggedPages.length > 0 || userExpanded;
   if (!expanded) {
     return (
-      <button
-        type="button"
-        className="link-btn retry-expand"
-        disabled={disabled}
-        onClick={() => setUserExpanded(true)}
-      >
+      <button type="button" className="link-btn retry-expand" disabled={disabled} onClick={() => setUserExpanded(true)}>
         Re-OCR specific pages…
       </button>
     );
@@ -119,9 +114,7 @@ export function RetryPanel({
           onChange={(event) => setSpec(event.target.value)}
         />
         <p className="hint retry-preview">{preview}</p>
-        {parsed.ignored.length > 0 && (
-          <p className="hint retry-ignored">Ignored: {parsed.ignored.join(', ')}.</p>
-        )}
+        {parsed.ignored.length > 0 && <p className="hint retry-ignored">Ignored: {parsed.ignored.join(', ')}.</p>}
         {showReset && (
           <button type="button" className="link-btn" disabled={disabled} onClick={() => setSpec(flaggedSpec)}>
             Reset to flagged ({flaggedPages.length})
@@ -172,8 +165,8 @@ export function RetryPanel({
 
       {error && <p className="error-text">{error}</p>}
       <p className="hint retry-hint">
-        Rate-limit (429) and overload (503) errors retry on their own; timeouts and dense (MAX_TOKENS) pages
-        are left here for you to retry.
+        Rate-limit (429) and overload (503) errors retry on their own; timeouts and dense (MAX_TOKENS) pages are left
+        here for you to retry.
       </p>
     </section>
   );
