@@ -204,32 +204,23 @@ export function useOcrJob(onComplete?: (summary: CompletionSummary) => void) {
         fireComplete(false, results.length, invocationCost(model, results));
       } catch (error) {
         if (abortRef.current !== controller) return; // superseded — leave the new job's state alone
-        if (controller.signal.aborted) {
-          // Keep whatever pages finished before the cancel so work isn't lost.
-          const ordered = [...collected].sort((a, b) => a.pageNumber - b.pageNumber);
-          const markdown = ordered.length ? buildOutputMarkdown(ordered) : '';
-          setState((prev) => ({
-            ...prev,
-            status: 'cancelled',
-            results: ordered,
-            markdown,
-            failed: ordered.filter((r) => r.error).length,
-            inFlight: 0,
-            retrying: 0,
-            elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
-          }));
-          fireComplete(false, ordered.length, invocationCost(model, ordered));
-        } else {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            error: error instanceof Error ? error.message : String(error),
-            inFlight: 0,
-            retrying: 0,
-            elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
-          }));
-          fireComplete(false, collected.length, invocationCost(model, collected));
-        }
+        // Keep whatever pages finished before a cancel or fatal error so paid-for work isn't lost.
+        const cancelled = controller.signal.aborted;
+        const message = error instanceof Error ? error.message : String(error);
+        const ordered = [...collected].sort((a, b) => a.pageNumber - b.pageNumber);
+        const markdown = ordered.length ? buildOutputMarkdown(ordered) : '';
+        setState((prev) => ({
+          ...prev,
+          status: cancelled ? 'cancelled' : 'error',
+          error: cancelled ? null : message,
+          results: ordered,
+          markdown,
+          failed: ordered.filter((r) => r.error).length,
+          inFlight: 0,
+          retrying: 0,
+          elapsedMs: performance.now() - (prev.startedAt ?? startedAt),
+        }));
+        fireComplete(false, ordered.length, invocationCost(model, ordered));
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }

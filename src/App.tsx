@@ -90,6 +90,8 @@ export function App() {
   const lifetime = useLifetimeStats();
   const { state: job, run, retry, cancel, reset } = useOcrJob(lifetime.record);
   const isRunning = job.status === 'running';
+  // 'error' counts as settled because a fatal error can still leave finished pages to show and retry.
+  const settled = job.status === 'done' || job.status === 'cancelled' || job.status === 'error';
 
   // One-shot sunburst behind the page, fired from the Convert button's
   // center on run. Mounted only while it plays (~2s), then unmounted. Every 10th
@@ -132,8 +134,8 @@ export function App() {
   // button. Cleared when a new PDF is loaded (handlePdf).
   const [lastMarkdown, setLastMarkdown] = useState('');
   useEffect(() => {
-    if ((job.status === 'done' || job.status === 'cancelled') && job.markdown) setLastMarkdown(job.markdown);
-  }, [job.status, job.markdown]);
+    if (settled && job.markdown) setLastMarkdown(job.markdown);
+  }, [settled, job.markdown]);
 
   // Restore a remembered key on mount. Reads sessionStorage too so keys saved by
   // the old per-tab storage carry over.
@@ -242,7 +244,6 @@ export function App() {
     ? Math.max(0, Math.min(settings.endPage, pdf.pageCount) - Math.max(1, settings.startPage) + 1)
     : 0;
   const largeJob = selectedPages > 50;
-  const settled = job.status === 'done' || job.status === 'cancelled';
   // A re-OCR is in flight while we still hold the prior document (so panels stay visible, not vanish).
   const reOcr = isRunning && job.markdown !== '';
   const flaggedPages = job.results.filter((r) => r.error || r.warning).map((r) => r.pageNumber);
@@ -348,7 +349,7 @@ export function App() {
             reOcr={reOcr}
             onCancel={cancel}
           />
-          {(settled || reOcr || job.status === 'error') && (
+          {(settled || reOcr) && (
             <CostSummary
               results={job.results}
               costByModel={job.costByModel}
